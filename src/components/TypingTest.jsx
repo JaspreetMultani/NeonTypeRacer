@@ -84,40 +84,69 @@ const useTypingTimer = (hasStarted, startTime, selectedTimeMode, completedWords,
     const [wpmData, setWpmData] = useState([]);
     const [showResults, setShowResults] = useState(false);
     const timerRef = useRef(null);
+    const lastDataPointRef = useRef(0);
+
+    const resetTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        lastDataPointRef.current = 0;
+        setTimeLeft(selectedTimeMode);
+        setEndTime(null);
+        setLiveWPM(0);
+        setWpmData([]);
+        setShowResults(false);
+    }, [selectedTimeMode]);
 
     useEffect(() => {
         if (hasStarted && !endTime) {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+
             timerRef.current = setInterval(() => {
                 const elapsed = (Date.now() - startTime) / 1000;
                 const remaining = selectedTimeMode - elapsed;
+                const currentSecond = Math.min(selectedTimeMode - Math.ceil(remaining), selectedTimeMode);
 
                 const timeInMinutes = Math.max(elapsed / 60, 0.001);
                 const wordsTyped = completedWords + (input.split(' ').length - 1);
                 const currentWPM = Math.round(wordsTyped / timeInMinutes);
                 setLiveWPM(currentWPM);
 
-                if (Math.round(elapsed) > wpmData.length) {
-                    setWpmData(prev => [...prev, { time: Math.round(elapsed), wpm: currentWPM }]);
+                // Only add data point if we've moved to a new second
+                if (currentSecond > lastDataPointRef.current) {
+                    lastDataPointRef.current = currentSecond;
+                    setWpmData(prev => [...prev, {
+                        time: currentSecond,
+                        wpm: currentWPM
+                    }]);
                 }
 
                 if (remaining <= 0) {
                     setTimeLeft(0);
                     setEndTime(Date.now());
                     setShowResults(true);
-                    clearInterval(timerRef.current);
+                    if (timerRef.current) {
+                        clearInterval(timerRef.current);
+                        timerRef.current = null;
+                    }
                 } else {
                     setTimeLeft(remaining);
                 }
             }, 16);
         }
+
         return () => {
             if (timerRef.current) {
                 clearInterval(timerRef.current);
+                timerRef.current = null;
             }
         };
-    }, [hasStarted, startTime, endTime, completedWords, input, selectedTimeMode, wpmData.length]);
+    }, [hasStarted, startTime, endTime, completedWords, input, selectedTimeMode]);
 
-    return { timeLeft, endTime, setEndTime, liveWPM, wpmData, setWpmData, showResults, setShowResults };
+    return { timeLeft, endTime, setEndTime, liveWPM, wpmData, setWpmData, showResults, setShowResults, resetTimer };
 };
 
 // Custom hook for typing logic
@@ -157,8 +186,21 @@ const TypingTest = ({ onTestComplete }) => {
     const [testHistory, setTestHistory] = useState([]);
 
     // Custom hooks
-    const { timeLeft, endTime, setEndTime, liveWPM, wpmData, setWpmData, showResults: timerShowResults } = useTypingTimer(
-        hasStarted, startTime, selectedTimeMode, completedWords, input
+    const {
+        timeLeft,
+        endTime,
+        setEndTime,
+        liveWPM,
+        wpmData,
+        setWpmData,
+        showResults: timerShowResults,
+        resetTimer
+    } = useTypingTimer(
+        hasStarted,
+        startTime,
+        selectedTimeMode,
+        completedWords,
+        input
     );
     const { checkLineCompletion, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord } = useTypingLogic(currentLine);
 
@@ -248,6 +290,10 @@ const TypingTest = ({ onTestComplete }) => {
     }, [endTime, hasStarted, input, currentLine, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord, handleLineCompletion]);
 
     const handleReset = useCallback(() => {
+        // Reset timer state
+        resetTimer();
+
+        // Save test history if test was completed
         if (endTime && startTime) {
             const currentStats = calculateStats();
             setTestHistory(prev => [{
@@ -262,24 +308,23 @@ const TypingTest = ({ onTestComplete }) => {
         // Reset all state
         setInput('');
         setStartTime(null);
-        setEndTime(null);
-        setTimeLeft(selectedTimeMode);
         setErrorCount(0);
         setTotalCharacters(0);
         setCompletedWords(0);
         setHasStarted(false);
-        setLiveWPM(0);
-        setShowResults(false);
-        setWpmData([]);
 
-        // Reset lines
+        // Reset lines with new text
         const firstLine = textGenerator.getNextLine();
         const secondLine = textGenerator.getNextLine();
         setCurrentLine(firstLine);
         setNextLine(secondLine);
+
+        // Focus the container
         containerRef.current?.focus();
+
+        // Call onTestComplete callback
         onTestComplete();
-    }, [endTime, startTime, selectedTimeMode, errorCount, calculateStats, onTestComplete]);
+    }, [endTime, startTime, selectedTimeMode, errorCount, calculateStats, onTestComplete, resetTimer]);
 
     const handleTimeModeChange = useCallback((event, newMode) => {
         if (newMode !== null) {
@@ -365,7 +410,7 @@ const TypingTest = ({ onTestComplete }) => {
                         </Box>
 
                         {/* WPM Graph */}
-                        <Box sx={{ height: 300, mb: 4 }}>
+                        <Box sx={{ height: 300, mb: 8 }}>
                             <Typography
                                 variant="h6"
                                 sx={{
@@ -377,15 +422,39 @@ const TypingTest = ({ onTestComplete }) => {
                                 WPM Over Time
                             </Typography>
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={wpmData}>
+                                <LineChart
+                                    data={wpmData}
+                                    margin={{
+                                        top: 10,
+                                        right: 10,
+                                        bottom: 40,
+                                        left: 60
+                                    }}
+                                >
                                     <XAxis
                                         dataKey="time"
                                         stroke="#666"
-                                        label={{ value: 'Time (seconds)', position: 'bottom', fill: '#666' }}
+                                        label={{
+                                            value: 'Time (seconds)',
+                                            position: 'bottom',
+                                            fill: '#666',
+                                            offset: 20
+                                        }}
+                                        domain={[0, selectedTimeMode]}
+                                        ticks={Array.from({ length: Math.min(16, selectedTimeMode + 1) }, (_, i) => i)}
+                                        type="number"
+                                        dy={10}
                                     />
                                     <YAxis
                                         stroke="#666"
-                                        label={{ value: 'WPM', angle: -90, position: 'left', fill: '#666' }}
+                                        label={{
+                                            value: 'WPM',
+                                            angle: -90,
+                                            position: 'left',
+                                            fill: '#666',
+                                            offset: 40
+                                        }}
+                                        dx={-10}
                                     />
                                     <Tooltip
                                         contentStyle={{
@@ -394,6 +463,8 @@ const TypingTest = ({ onTestComplete }) => {
                                             borderRadius: '4px',
                                             color: '#fff'
                                         }}
+                                        formatter={(value) => [`${value} WPM`, 'Speed']}
+                                        labelFormatter={(time) => `Time: ${time}s`}
                                     />
                                     <Line
                                         type="monotone"
@@ -402,6 +473,7 @@ const TypingTest = ({ onTestComplete }) => {
                                         strokeWidth={2}
                                         dot={false}
                                         activeDot={{ r: 4 }}
+                                        isAnimationActive={false}
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
@@ -414,7 +486,8 @@ const TypingTest = ({ onTestComplete }) => {
                                     variant="h6"
                                     sx={{
                                         color: 'text.primary',
-                                        mb: 2,
+                                        mb: 3,
+                                        mt: 2,
                                         textAlign: 'center'
                                     }}
                                 >
@@ -425,6 +498,7 @@ const TypingTest = ({ onTestComplete }) => {
                                         display: 'flex',
                                         flexDirection: 'column',
                                         gap: 2,
+                                        mt: 2
                                     }}
                                 >
                                     {testHistory.map((test, index) => (
