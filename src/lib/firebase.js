@@ -29,6 +29,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// App Check (prod only)
+if (import.meta.env.PROD && import.meta.env.VITE_APPCHECK_KEY) {
+    import('firebase/app-check').then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
+        initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider(import.meta.env.VITE_APPCHECK_KEY),
+            isTokenAutoRefreshEnabled: true,
+        });
+    }).catch(() => {});
+}
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);

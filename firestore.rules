@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['username','avatarUrl','createdAt'])
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$');
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['username','avatarUrl'])
+        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$');
+      allow delete: if false;
+    }
+
+    match /runs/{runId} {
+      allow read: if true; // public leaderboard reads
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid','username','mode','wpm','accuracy','errors','wpmSeries','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.mode in [15,30,60]
+        && request.resource.data.wpm is number && request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400
+        && request.resource.data.accuracy is number && request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100
+        && request.resource.data.errors is number && request.resource.data.errors >= 0 && request.resource.data.errors <= 200
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['status','modeSeconds','seed','hostId','createdAt','startAt'])
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.modeSeconds in [15,30,60];
+
+      allow update: if signedIn()
+        && resource.data.hostId == request.auth.uid
+        && request.resource.data.hostId == resource.data.hostId
+        && request.resource.data.modeSeconds == resource.data.modeSeconds;
+
+      allow delete: if false;
+
+      match /players/{uid} {
+        allow read: if signedIn();
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate'])
+          && request.resource.data.uid == request.auth.uid
+          && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
+          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100));
+        allow delete: if isOwner(uid) || (signedIn() && get(/databases/$(db)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
+      }
+    }
+  }
+}
