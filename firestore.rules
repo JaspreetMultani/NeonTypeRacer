@@ -25,6 +25,7 @@ service cloud.firestore {
         && request.resource.data.wpm is number && request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400
         && request.resource.data.accuracy is number && request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100
         && request.resource.data.errors is number && request.resource.data.errors >= 0 && request.resource.data.errors <= 200
+        && request.resource.data.wpmSeries is list && request.resource.data.wpmSeries.size() <= 120
         && request.resource.data.createdAt is timestamp;
       allow update, delete: if false;
     }
@@ -39,17 +40,51 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.hostId == request.auth.uid
         && request.resource.data.hostId == resource.data.hostId
-        && request.resource.data.modeSeconds == resource.data.modeSeconds;
+        && request.resource.data.modeSeconds == resource.data.modeSeconds
+        // Only allow status/startAt to change
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','startAt'])
+        // Enforce allowed status transitions and timing
+        && (
+          (
+            // lobby -> countdown: must set a future startAt
+            resource.data.status == 'lobby' && request.resource.data.status == 'countdown'
+            && request.resource.data.startAt is timestamp
+            && request.resource.data.startAt > request.time
+          ) || (
+            // countdown -> in_progress: cannot change startAt and start time must have passed
+            resource.data.status == 'countdown' && request.resource.data.status == 'in_progress'
+            && request.resource.data.startAt == resource.data.startAt
+            && resource.data.startAt <= request.time
+          ) || (
+            // in_progress -> finished: cannot change startAt and duration must have elapsed
+            resource.data.status == 'in_progress' && request.resource.data.status == 'finished'
+            && request.resource.data.startAt == resource.data.startAt
+            && resource.data.startAt + duration.value(resource.data.modeSeconds, 's') <= request.time
+          )
+        );
 
       allow delete: if false;
 
       match /players/{uid} {
         allow read: if signedIn();
-        allow create, update: if isOwner(uid)
+        // Separate create/update to add throttling only on updates
+        allow create: if isOwner(uid)
           && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate'])
           && request.resource.data.uid == request.auth.uid
+          && request.resource.data.username is string && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
           && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
-          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100));
+          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
+          && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000));
+
+        allow update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.username is string && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
+          && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
+          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
+          && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000))
+          // Throttle per-player updates to at most ~1 per second
+          && (resource.data.lastUpdate == null || request.time - resource.data.lastUpdate >= duration.value(1, 's'));
         allow delete: if isOwner(uid) || (signedIn() && get(/databases/$(db)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
       }
     }

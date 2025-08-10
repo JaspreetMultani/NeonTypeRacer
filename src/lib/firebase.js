@@ -29,14 +29,25 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// App Check (prod only)
-if (import.meta.env.PROD && import.meta.env.VITE_APPCHECK_KEY) {
+// App Check
+// Allow debug token in dev when enforcement is on
+if (!import.meta.env.PROD && import.meta.env.VITE_APPCHECK_DEBUG === 'true') {
+    // eslint-disable-next-line no-undef
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+}
+
+const shouldInitAppCheck = (
+    (import.meta.env.PROD && import.meta.env.VITE_APPCHECK_KEY) ||
+    (!import.meta.env.PROD && import.meta.env.VITE_APPCHECK_DEBUG === 'true' && import.meta.env.VITE_APPCHECK_KEY)
+);
+
+if (shouldInitAppCheck) {
     import('firebase/app-check').then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
         initializeAppCheck(app, {
             provider: new ReCaptchaV3Provider(import.meta.env.VITE_APPCHECK_KEY),
             isTokenAutoRefreshEnabled: true,
         });
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 export const auth = getAuth(app);
