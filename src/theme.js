@@ -1,59 +1,64 @@
 import { createTheme } from '@mui/material';
 
-const darkTheme = createTheme({
+const minimalistTheme = createTheme({
     palette: {
-        mode: 'dark',
+        mode: 'light',
         primary: {
-            main: '#8B5CF6',
-            dark: '#7C3AED',
-            light: '#A78BFA',
+            main: '#A2AF9B',
+            dark: '#8B9A85',
+            light: '#B8C4B0',
+        },
+        secondary: {
+            main: '#DCCFC0',
+            dark: '#C4B8A8',
+            light: '#E6DCD0',
         },
         background: {
-            default: '#1E1B4B',
-            paper: 'rgba(30, 27, 75, 0.7)',
+            default: '#FAF9EE',
+            paper: '#FFFFFF',
         },
         text: {
-            primary: '#F8FAFC',
-            secondary: '#CBD5E1',
+            primary: '#2D3748',
+            secondary: '#4A5568',
         },
         error: {
-            main: '#EF4444',
-            light: '#FCA5A5',
+            main: '#E53E3E',
+            light: '#FEB2B2',
         },
         success: {
-            main: '#10B981',
-            light: '#6EE7B7',
+            main: '#38A169',
+            light: '#9AE6B4',
         },
         info: {
-            main: '#3B82F6',
-            light: '#93C5FD',
+            main: '#3182CE',
+            light: '#90CDF4',
         },
     },
     typography: {
-        fontFamily: '"Space Grotesk", sans-serif',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         h1: {
             fontWeight: 700,
-            letterSpacing: '-0.02em',
-            color: '#F8FAFC',
+            letterSpacing: '-0.025em',
+            color: '#2D3748',
         },
         h2: {
             fontWeight: 600,
-            letterSpacing: '-0.01em',
-            color: '#F8FAFC',
+            letterSpacing: '-0.02em',
+            color: '#2D3748',
         },
         h3: {
             fontWeight: 600,
-            color: '#F8FAFC',
+            color: '#2D3748',
         },
         body1: {
-            fontFamily: '"JetBrains Mono", monospace',
-            letterSpacing: '-0.02em',
-            color: '#F8FAFC',
+            fontFamily: '"Inter", sans-serif',
+            letterSpacing: '-0.01em',
+            color: '#2D3748',
         },
         body2: {
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: '"Inter", sans-serif',
             letterSpacing: '-0.01em',
-            color: '#CBD5E1',
+            color: '#4A5568',
         },
     },
     components: {
@@ -61,12 +66,13 @@ const darkTheme = createTheme({
             styleOverrides: {
                 root: {
                     textTransform: 'none',
-                    fontFamily: '"Space Grotesk", sans-serif',
+                    fontFamily: '"Inter", sans-serif',
                     fontWeight: 500,
-                    letterSpacing: '0.02em',
+                    letterSpacing: '0.01em',
+                    borderRadius: 8,
                     '&:hover': {
-                        backgroundColor: '#7C3AED',
-                        boxShadow: '0 0 20px rgba(124, 58, 237, 0.3)',
+                        backgroundColor: '#8B9A85',
+                        boxShadow: '0 2px 8px rgba(162, 175, 155, 0.2)',
                     },
                 },
             },
@@ -85,14 +91,40 @@ const darkTheme = createTheme({
             styleOverrides: {
                 root: {
                     backgroundImage: 'none',
-                    backgroundColor: 'rgba(30, 27, 75, 0.7)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backgroundColor: '#FFFFFF',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
+                    border: '1px solid #EEEEEE',
+                    borderRadius: 12,
+                },
+            },
+        },
+        MuiTextField: {
+            styleOverrides: {
+                root: {
+                    '& .MuiOutlinedInput-root': {
+                        borderRadius: 8,
+                        '& fieldset': {
+                            borderColor: '#EEEEEE',
+                        },
+                        '&:hover fieldset': {
+                            borderColor: '#DCCFC0',
+                        },
+                        '&.Mui-focused fieldset': {
+                            borderColor: '#A2AF9B',
+                        },
+                    },
+                },
+            },
+        },
+        MuiChip: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 6,
+                    fontWeight: 500,
                 },
             },
         },
     },
 });
 
-export { darkTheme }; 
+export { minimalistTheme }; 

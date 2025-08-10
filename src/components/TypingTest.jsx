@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { keyframes } from '@mui/system';
 import { textGenerator } from '../utils/textGenerator';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { auth } from '../lib/firebase';
+import { submitRun } from '../lib/runService';
 
 const TIME_MODES = {
     SHORT: 15,
@@ -22,53 +24,39 @@ const blinkAnimation = keyframes`
 
 // Common styles
 const commonBoxStyles = {
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-    padding: '12px 20px',
-    borderRadius: 2,
-    border: '1px solid rgba(139, 92, 246, 0.2)',
+    backgroundColor: 'background.paper',
+    padding: '12px 16px',
+    borderRadius: 8,
+    border: '1px solid',
+    borderColor: 'divider',
     display: 'flex',
     alignItems: 'center',
-    gap: 2,
+    gap: 8,
     flex: 1,
-    maxWidth: '200px',
+    maxWidth: '220px',
     position: 'relative',
-    overflow: 'hidden',
-    backdropFilter: 'blur(10px)',
-    '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '2px',
-        background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.6) 50%, rgba(139, 92, 246, 0.2) 100%)',
-    },
-    '&:hover': {
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        boxShadow: '0 0 20px rgba(139, 92, 246, 0.1)',
-    }
+    overflow: 'hidden'
 };
 
 // Stat box component
 const StatBox = memo(({ icon: Icon, label, value, color = 'primary.main' }) => (
     <Box sx={commonBoxStyles}>
-        <Icon sx={{ color, fontSize: '1.5rem', opacity: 0.8 }} />
+        <Icon sx={{ color, fontSize: '1.4rem', opacity: 0.9 }} />
         <Box>
             <Typography variant="body2" sx={{
                 color: 'text.secondary',
-                fontWeight: 500,
+                fontWeight: 600,
                 mb: 0.5,
                 fontSize: '0.75rem',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em'
+                letterSpacing: '0.08em'
             }}>
                 {label}
             </Typography>
-            <Typography variant="h5" sx={{
+            <Typography variant="h6" sx={{
                 fontFamily: 'monospace',
                 color,
-                fontWeight: 'bold',
-                textShadow: '0 0 10px rgba(106, 90, 205, 0.3)',
+                fontWeight: 700
             }}>
                 {value}
             </Typography>
@@ -171,7 +159,8 @@ const useTypingLogic = (currentLine) => {
     return { checkLineCompletion, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord };
 };
 
-const TypingTest = ({ onTestComplete }) => {
+// Added startAtMs and isDisabled
+const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled = false, startAtMs = null, modeSeconds = null }) => {
     const [input, setInput] = useState('');
     const [startTime, setStartTime] = useState(null);
     const [errorCount, setErrorCount] = useState(0);
@@ -180,10 +169,17 @@ const TypingTest = ({ onTestComplete }) => {
     const [nextLine, setNextLine] = useState('');
     const [completedWords, setCompletedWords] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
-    const [selectedTimeMode, setSelectedTimeMode] = useState(TIME_MODES.SHORT);
+    const [selectedTimeMode, setSelectedTimeMode] = useState(modeSeconds || TIME_MODES.SHORT);
     const [showResults, setShowResults] = useState(false);
     const containerRef = useRef(null);
     const [testHistory, setTestHistory] = useState([]);
+
+    // If modeSeconds prop changes (multiplayer), lock the timer mode
+    useEffect(() => {
+        if (typeof modeSeconds === 'number' && modeSeconds > 0) {
+            setSelectedTimeMode(modeSeconds);
+        }
+    }, [modeSeconds]);
 
     // Custom hooks
     const {
@@ -204,26 +200,71 @@ const TypingTest = ({ onTestComplete }) => {
     );
     const { checkLineCompletion, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord } = useTypingLogic(currentLine);
 
-    // Initialize lines
+    // Initialize lines (optional seed)
     useEffect(() => {
+        if (seed !== undefined && seed !== null) {
+            textGenerator.setSeed(seed);
+        }
         const firstLine = textGenerator.getNextLine();
         const secondLine = textGenerator.getNextLine();
         setCurrentLine(firstLine);
         setNextLine(secondLine);
         containerRef.current?.focus();
-    }, []);
+    }, [seed]);
+
+    // Align start with provided startAtMs in multiplayer so refresh doesn't reset timer
+    useEffect(() => {
+        if (startAtMs && !isDisabled) {
+            const startTimeMs = startAtMs; // when countdown hit zero
+            setHasStarted(true);
+            setStartTime(startTimeMs);
+        }
+    }, [startAtMs, isDisabled]);
+
+    // Removed fallback auto-start to ensure single-player starts on first keypress only
 
     const calculateStats = useCallback(() => {
         if (!startTime || !endTime) return { wpm: 0, accuracy: 100 };
-
         const timeInMinutes = Math.max((endTime - startTime) / 1000 / 60, 0.001);
         const wordsTyped = completedWords + (input.split(' ').length - 1);
         const wpm = Math.round(wordsTyped / timeInMinutes);
-        const accuracy = totalCharacters ?
-            Math.round(((totalCharacters - errorCount) / totalCharacters) * 100) : 100;
-
+        const accuracy = totalCharacters ? Math.round(((totalCharacters - errorCount) / totalCharacters) * 100) : 100;
         return { wpm, accuracy };
     }, [startTime, endTime, completedWords, input, totalCharacters, errorCount]);
+
+    // Submit run once when results first show
+    const hasSubmittedRef = useRef(false);
+    useEffect(() => {
+        if (timerShowResults && !hasSubmittedRef.current && startTime && endTime) {
+            hasSubmittedRef.current = true;
+            const { wpm, accuracy } = calculateStats();
+            const user = auth.currentUser;
+            if (user) {
+                submitRun({
+                    user,
+                    modeSeconds: selectedTimeMode,
+                    wpm,
+                    accuracy,
+                    errors: errorCount,
+                    wpmSeries: wpmData,
+                }).catch(() => { });
+            }
+            if (onFinish) {
+                onFinish({ wpm, accuracy, errors: errorCount, modeSeconds: selectedTimeMode });
+            }
+        }
+    }, [timerShowResults, startTime, endTime, calculateStats, selectedTimeMode, errorCount, wpmData, onFinish]);
+
+    // Live update callback on new data points
+    const lastSentRef = useRef(0);
+    useEffect(() => {
+        if (!onLiveUpdate || wpmData.length === 0) return;
+        const latest = wpmData[wpmData.length - 1];
+        if (!latest || latest.time === lastSentRef.current) return;
+        lastSentRef.current = latest.time;
+        const accuracy = totalCharacters ? Math.round(((totalCharacters - errorCount) / totalCharacters) * 100) : 100;
+        onLiveUpdate({ time: latest.time, wpm: latest.wpm, accuracy, inputLength: input.length });
+    }, [wpmData, onLiveUpdate, totalCharacters, errorCount, input.length]);
 
     const handleLineCompletion = useCallback((newInput) => {
         if (checkLineCompletion(newInput)) {
@@ -238,14 +279,16 @@ const TypingTest = ({ onTestComplete }) => {
 
     const handleKeyPress = useCallback((e) => {
         if (endTime) return;
+        if (isDisabled) { e?.preventDefault?.(); return; }
         if (!isValidKeyPress(e)) return;
-
-        // Start the timer on first keypress
+        if (e && typeof e.preventDefault === 'function') {
+            const isTypingKey = e.key === ' ' || e.key === 'Backspace' || e.key.length === 1;
+            if (isTypingKey) e.preventDefault();
+        }
         if (!hasStarted && e.key.length === 1) {
             setHasStarted(true);
             setStartTime(Date.now());
         }
-
         if (e.key === 'Backspace') {
             if (input.length > 0) {
                 const lastChar = input[input.length - 1];
@@ -256,16 +299,13 @@ const TypingTest = ({ onTestComplete }) => {
             }
             return;
         }
-
         if (e.key === ' ') {
             const expectedChar = currentLine[input.length];
             const atLastWord = isAtLastWord(input);
             const completedWord = hasCompletedCurrentWord(input);
-
             if (expectedChar && expectedChar !== ' ' && !atLastWord && !completedWord) {
                 setErrorCount(prev => prev + 1);
             }
-
             if (expectedChar === ' ' || atLastWord || completedWord) {
                 const newInput = input + e.key;
                 setInput(newInput);
@@ -274,24 +314,49 @@ const TypingTest = ({ onTestComplete }) => {
             }
             return;
         }
-
         if (e.key.length === 1) {
             if (input.length >= currentLine.length) return;
-
             const newInput = input + e.key;
             setInput(newInput);
             setTotalCharacters(prev => prev + 1);
-
             const expectedChar = currentLine[input.length];
             if (expectedChar === ' ' || e.key !== expectedChar) {
                 setErrorCount(prev => prev + 1);
             }
         }
-    }, [endTime, hasStarted, input, currentLine, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord, handleLineCompletion]);
+    }, [endTime, isDisabled, hasStarted, input, currentLine, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord, handleLineCompletion]);
+
+    // Ensure typing works even if focus leaves the typing box
+    useEffect(() => {
+        const onWindowKeyDown = (e) => {
+            if (!containerRef.current) return;
+            const active = document.activeElement;
+
+            // If user is typing in an input/textarea/contenteditable or inside a dialog, do nothing
+            const isInputEl = active && ((active.tagName === 'INPUT') || (active.tagName === 'TEXTAREA') || active.isContentEditable);
+            const inDialog = active && typeof active.closest === 'function' && !!active.closest('[role="dialog"]');
+            if (isInputEl || inDialog) return;
+
+            const isTypingKey = (!e.metaKey && !e.ctrlKey && !e.altKey) && (e.key === ' ' || e.key === 'Backspace' || e.key.length === 1);
+            if (isTypingKey && active !== containerRef.current) {
+                e.preventDefault();
+                containerRef.current.focus();
+                handleKeyPress(e);
+            }
+        };
+        window.addEventListener('keydown', onWindowKeyDown);
+        return () => window.removeEventListener('keydown', onWindowKeyDown);
+    }, [handleKeyPress]);
 
     const handleReset = useCallback(() => {
+        // In multiplayer (room), never allow reset
+        if (modeSeconds) {
+            return;
+        }
+
         // Reset timer state
         resetTimer();
+        hasSubmittedRef.current = false;
 
         // Save test history if test was completed
         if (endTime && startTime) {
@@ -324,12 +389,12 @@ const TypingTest = ({ onTestComplete }) => {
 
         // Call onTestComplete callback
         onTestComplete();
-    }, [endTime, startTime, selectedTimeMode, errorCount, calculateStats, onTestComplete, resetTimer]);
+    }, [modeSeconds, endTime, startTime, selectedTimeMode, errorCount, calculateStats, onTestComplete, resetTimer]);
 
     const handleTimeModeChange = useCallback((event, newMode) => {
         if (newMode !== null) {
             setSelectedTimeMode(newMode);
-            setTimeLeft(newMode);
+            // Reset and reinitialize for new duration
             handleReset();
         }
     }, [handleReset]);
@@ -371,18 +436,19 @@ const TypingTest = ({ onTestComplete }) => {
                             backgroundColor: 'background.paper',
                             borderRadius: 2,
                             p: 4,
-                            boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             mt: 4
                         }}
                     >
                         <Typography
                             variant="h5"
                             sx={{
-                                color: 'primary.main',
+                                color: 'text.primary',
                                 fontWeight: 'bold',
                                 mb: 3,
-                                textAlign: 'center',
-                                textShadow: '0 0 10px rgba(106, 90, 205, 0.3)',
+                                textAlign: 'center'
                             }}
                         >
                             Test Results
@@ -410,7 +476,7 @@ const TypingTest = ({ onTestComplete }) => {
                         </Box>
 
                         {/* WPM Graph */}
-                        <Box sx={{ height: 300, mb: 8 }}>
+                        <Box sx={{ height: 300, mb: 6 }}>
                             <Typography
                                 variant="h6"
                                 sx={{
@@ -469,7 +535,7 @@ const TypingTest = ({ onTestComplete }) => {
                                     <Line
                                         type="monotone"
                                         dataKey="wpm"
-                                        stroke="#8B5CF6"
+                                        stroke="#A2AF9B"
                                         strokeWidth={2}
                                         dot={false}
                                         activeDot={{ r: 4 }}
@@ -486,8 +552,8 @@ const TypingTest = ({ onTestComplete }) => {
                                     variant="h6"
                                     sx={{
                                         color: 'text.primary',
-                                        mb: 3,
-                                        mt: 2,
+                                        mb: 2,
+                                        mt: 1,
                                         textAlign: 'center'
                                     }}
                                 >
@@ -497,8 +563,8 @@ const TypingTest = ({ onTestComplete }) => {
                                     sx={{
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: 2,
-                                        mt: 2
+                                        gap: 1.5,
+                                        mt: 1.5
                                     }}
                                 >
                                     {testHistory.map((test, index) => (
@@ -508,19 +574,21 @@ const TypingTest = ({ onTestComplete }) => {
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
-                                                p: 2,
+                                                p: 1.5,
                                                 borderRadius: 1,
-                                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                                backgroundColor: 'background.paper',
+                                                border: '1px solid',
+                                                borderColor: 'divider'
                                             }}
                                         >
                                             <Typography sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
                                                 {test.timestamp} ({test.duration}s)
                                             </Typography>
-                                            <Box sx={{ display: 'flex', gap: 3 }}>
+                                            <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Typography sx={{ color: 'primary.main', fontFamily: 'monospace' }}>
                                                     {test.wpm} WPM
                                                 </Typography>
-                                                <Typography sx={{ color: 'primary.main', fontFamily: 'monospace' }}>
+                                                <Typography sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
                                                     {test.accuracy}% ACC
                                                 </Typography>
                                             </Box>
@@ -631,50 +699,51 @@ const TypingTest = ({ onTestComplete }) => {
                         alignItems: 'center'
                     }}
                 >
-                    {/* Time Mode Selector */}
-                    <ToggleButtonGroup
-                        value={selectedTimeMode}
-                        exclusive
-                        onChange={handleTimeModeChange}
-                        aria-label="time mode"
-                        sx={{
-                            mb: 4,
-                            gap: 2,
-                            '& .MuiToggleButton-root': {
-                                backgroundColor: 'background.paper',
-                                color: 'text.secondary',
-                                borderRadius: 2,
-                                border: 'none',
-                                padding: '12px 24px',
-                                boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
-                                fontFamily: 'monospace',
+                    {/* Time Mode Selector - hide in multiplayer */}
+                    {!modeSeconds && (
+                        <ToggleButtonGroup
+                            value={selectedTimeMode}
+                            exclusive
+                            onChange={handleTimeModeChange}
+                            aria-label="time mode"
+                            sx={{
+                                mb: 4,
                                 gap: 1,
-                                '&.Mui-selected': {
+                                '& .MuiToggleButton-root': {
                                     backgroundColor: 'background.paper',
-                                    color: 'primary.main',
-                                    fontWeight: 'bold',
-                                    textShadow: '0 0 10px rgba(106, 90, 205, 0.3)',
+                                    color: 'text.secondary',
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    padding: '10px 18px',
+                                    fontFamily: 'monospace',
+                                    gap: 0.5,
+                                    '&.Mui-selected': {
+                                        backgroundColor: 'secondary.light',
+                                        color: 'text.primary',
+                                        fontWeight: 'bold'
+                                    },
+                                    '&:hover': {
+                                        backgroundColor: 'secondary.light',
+                                        opacity: 0.95,
+                                    },
                                 },
-                                '&:hover': {
-                                    backgroundColor: 'background.paper',
-                                    opacity: 0.9,
-                                },
-                            },
-                        }}
-                    >
-                        <ToggleButton value={TIME_MODES.SHORT}>
-                            <TimerIcon sx={{ fontSize: '1.2rem' }} />
-                            15s
-                        </ToggleButton>
-                        <ToggleButton value={TIME_MODES.MEDIUM}>
-                            <TimerIcon sx={{ fontSize: '1.2rem' }} />
-                            30s
-                        </ToggleButton>
-                        <ToggleButton value={TIME_MODES.LONG}>
-                            <TimerIcon sx={{ fontSize: '1.2rem' }} />
-                            60s
-                        </ToggleButton>
-                    </ToggleButtonGroup>
+                            }}
+                        >
+                            <ToggleButton value={TIME_MODES.SHORT}>
+                                <TimerIcon sx={{ fontSize: '1.2rem' }} />
+                                15s
+                            </ToggleButton>
+                            <ToggleButton value={TIME_MODES.MEDIUM}>
+                                <TimerIcon sx={{ fontSize: '1.2rem' }} />
+                                30s
+                            </ToggleButton>
+                            <ToggleButton value={TIME_MODES.LONG}>
+                                <TimerIcon sx={{ fontSize: '1.2rem' }} />
+                                60s
+                            </ToggleButton>
+                        </ToggleButtonGroup>
+                    )}
 
                     {/* Stats Panel - Now Horizontal */}
                     <StatsPanel />
@@ -729,23 +798,14 @@ const TypingTest = ({ onTestComplete }) => {
                         startIcon={<RestartAltIcon />}
                         onClick={handleReset}
                         size="large"
+                        disabled={!!modeSeconds}
                         sx={{
                             mt: 4,
                             px: 4,
                             py: 1.5,
                             borderRadius: 2,
-                            fontSize: '1.1rem',
-                            fontFamily: 'monospace',
-                            backgroundColor: 'background.paper',
-                            color: 'primary.main',
-                            boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
-                            border: 'none',
-                            fontWeight: 'bold',
-                            textShadow: '0 0 10px rgba(106, 90, 205, 0.3)',
-                            '&:hover': {
-                                backgroundColor: 'background.paper',
-                                opacity: 0.9,
-                            }
+                            fontSize: '1.05rem',
+                            fontWeight: 600
                         }}
                     >
                         Try Again

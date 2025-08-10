@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-        <rect fill="#2196f3" x="2" y="4" width="20" height="16" rx="2"/>
-        <g transform="translate(4, 7)" fill="#ffffff">
+        <rect fill="#A2AF9B" x="2" y="4" width="20" height="16" rx="2"/>
+        <g transform="translate(4, 7)" fill="#FFFFFF">
             <rect x="0" y="0" width="2" height="2" rx="0.5"/>
             <rect x="4" y="0" width="2" height="2" rx="0.5"/>
             <rect x="8" y="0" width="2" height="2" rx="0.5"/>

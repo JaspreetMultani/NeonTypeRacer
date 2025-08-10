@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "delete-auth-users": "node scripts/delete-auth-users.cjs",
+    "delete-firestore": "node scripts/delete-firestore-collections.cjs",
+    "delete-firestore-users": "node scripts/delete-firestore-users-only.cjs",
+    "deploy": "vite build && npx firebase deploy --only hosting --non-interactive || true"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
@@ -16,11 +20,12 @@
     "@mui/icons-material": "^5.15.10",
     "@mui/material": "^5.15.10",
     "chart.js": "^4.4.1",
+    "firebase": "^12.1.0",
     "framer-motion": "^11.0.5",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^6.22.1",
+    "react-router-dom": "^6.30.1",
     "recharts": "^2.15.3",
     "zustand": "^4.5.1"
   },
@@ -33,6 +38,8 @@
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
+    "firebase-admin": "^13.4.0",
+    "firebase-tools": "^14.12.0",
     "globals": "^16.0.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",

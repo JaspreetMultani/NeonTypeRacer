@@ -38,10 +38,39 @@ class TextGenerator {
         this.currentLineWords = [];
         this.wordsPerLine = 9; // Adjust this for longer/shorter lines
         this.minQueueSize = 50; // Keep a buffer of words
+        // PRNG state
+        this._seed = null;
+        this._state = 1;
+    }
+
+    // Simple LCG PRNG
+    _rand() {
+        if (this._seed == null) {
+            return Math.random();
+        }
+        // LCG constants (Numerical Recipes)
+        this._state = (1664525 * this._state + 1013904223) % 4294967296;
+        return this._state / 4294967296;
+    }
+
+    setSeed(seed) {
+        // Normalize seed to integer
+        let s = 0;
+        const str = String(seed || 'default');
+        for (let i = 0; i < str.length; i++) {
+            s = (s * 31 + str.charCodeAt(i)) >>> 0;
+        }
+        if (s === 0) s = 1;
+        this._seed = s;
+        this._state = s;
+        // Reset queues so new sequence applies
+        this.wordQueue = [];
+        this.currentLineWords = [];
     }
 
     getRandomWord() {
-        return commonWords[Math.floor(Math.random() * commonWords.length)];
+        const idx = Math.floor(this._rand() * commonWords.length);
+        return commonWords[idx];
     }
 
     generateWords(count) {

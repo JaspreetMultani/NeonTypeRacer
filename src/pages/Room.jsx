@@ -1,0 +1,247 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Paper, Typography, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemAvatar, Avatar, ListItemText } from '@mui/material';
+import { useParams, useNavigate } from 'react-router-dom';
+import { auth } from '../lib/firebase';
+import { joinRoom, subscribeRoom, subscribePlayers, startRace, updatePlayerProgress, finishPlayer, setInProgress, finishRace } from '../lib/roomService';
+import { getUserProfile } from '../lib/userProfile';
+import TypingTest from '../components/TypingTest';
+
+export default function Room() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [room, setRoom] = useState(null);
+    const [players, setPlayers] = useState([]);
+    const [countdown, setCountdown] = useState(null);
+    const [resultsOpen, setResultsOpen] = useState(false);
+
+    useEffect(() => {
+        const unsubRoom = subscribeRoom(id, setRoom);
+        const unsubPlayers = subscribePlayers(id, setPlayers);
+        return () => { unsubRoom && unsubRoom(); unsubPlayers && unsubPlayers(); };
+    }, [id]);
+
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+        (async () => {
+            try {
+                const profile = await getUserProfile(user.uid);
+                const username = profile?.username || user.displayName || (user.email ? user.email.split('@')[0] : 'user');
+                await joinRoom({ roomId: id, uid: user.uid, username });
+            } catch {
+                const fallback = user.displayName || (user.email ? user.email.split('@')[0] : 'user');
+                await joinRoom({ roomId: id, uid: user.uid, username: fallback });
+            }
+        })();
+    }, [id]);
+
+    // Open results dialog when race finishes
+    useEffect(() => {
+        if (room?.status === 'finished') {
+            setResultsOpen(true);
+        }
+    }, [room?.status]);
+
+    const topPlayers = useMemo(() => {
+        const arr = [...players];
+        arr.sort((a, b) => (b.wpm || 0) - (a.wpm || 0) || (b.accuracy || 0) - (a.accuracy || 0));
+        return arr.slice(0, 5);
+    }, [players]);
+
+    // Handle countdown and auto-transition to in_progress
+    useEffect(() => {
+        if (!room || room.status !== 'countdown' || !room.startAt) return;
+
+        const startAtMs = room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime();
+
+        // Initialize immediately
+        const update = () => {
+            const timeLeft = Math.max(0, startAtMs - Date.now());
+            if (timeLeft === 0) {
+                setCountdown(0);
+                return true;
+            }
+            setCountdown(Math.ceil(timeLeft / 1000));
+            return false;
+        };
+
+        if (update()) {
+            // Already zero
+            setInProgress({ roomId: id });
+            setCountdown(null);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const reachedZero = update();
+            if (reachedZero) {
+                clearInterval(interval);
+                setInProgress({ roomId: id });
+                setCountdown(null);
+            }
+        }, 200);
+
+        return () => clearInterval(interval);
+    }, [room, id]);
+
+    // Auto mark race as finished when duration elapses
+    useEffect(() => {
+        if (!room || room.status !== 'in_progress' || !room.startAt) return;
+        const startAtMs = room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime();
+        const durationMs = (room.modeSeconds || 15) * 1000;
+        const endAtMs = startAtMs + durationMs;
+        const remaining = endAtMs - Date.now();
+        if (remaining <= 0) {
+            finishRace({ roomId: id });
+            return;
+        }
+        const t = setTimeout(() => finishRace({ roomId: id }), remaining + 50);
+        return () => clearTimeout(t);
+    }, [room, id]);
+
+    const user = auth.currentUser;
+    const isHost = user && room && room.hostId === user.uid;
+
+    const handleStart = async () => {
+        if (!isHost) return;
+        await startRace({ roomId: id, countdownMs: 5000 });
+    };
+
+    const handleLive = async ({ wpm, accuracy, inputLength }) => {
+        if (!user) return;
+        await updatePlayerProgress({ roomId: id, uid: user.uid, wpm, accuracy, inputLength });
+    };
+
+    const handleFinish = async ({ wpm, accuracy }) => {
+        if (!user) return;
+        await finishPlayer({ roomId: id, uid: user.uid, wpm, accuracy });
+    };
+
+    if (!room) {
+        return (
+            <Box sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}>
+                <Typography>Loading room…</Typography>
+            </Box>
+        );
+    }
+
+    const startAtMs = room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : null;
+    const statusLabel = room.status === 'finished' ? 'game over' : room.status;
+    const statusColor = room.status === 'in_progress' ? 'success' : room.status === 'countdown' ? 'info' : room.status === 'finished' ? 'warning' : 'default';
+
+    return (
+        <Box sx={{ mt: 4 }}>
+            <Paper sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                    <Typography variant="h6">Room: {id}</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>Mode: {room.modeSeconds}s • Seed: {room.seed}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Chip label={statusLabel} color={statusColor} />
+                    {typeof countdown === 'number' && (
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            {countdown}
+                        </Typography>
+                    )}
+                    {isHost && room.status === 'lobby' && (
+                        <Button variant="contained" onClick={handleStart}>Start (5s)</Button>
+                    )}
+                    <Button variant="text" onClick={() => navigate('/multiplayer')}>Back</Button>
+                </Box>
+            </Paper>
+
+            <Paper sx={{ p: 2, mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Players</Typography>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    {players.map(p => (
+                        <Chip key={p.uid} label={`@${p.username} • ${p.wpm || 0} WPM`} />
+                    ))}
+                </Box>
+            </Paper>
+
+            <TypingTest
+                seed={room.seed}
+                isDisabled={room.status !== 'in_progress'}
+                startAtMs={startAtMs}
+                modeSeconds={room.modeSeconds}
+                onLiveUpdate={handleLive}
+                onFinish={handleFinish}
+                onTestComplete={() => { }}
+            />
+
+            <Dialog
+                open={resultsOpen}
+                onClose={() => setResultsOpen(false)}
+                fullWidth
+                maxWidth="xs"
+                PaperProps={{
+                    sx: {
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                        backgroundColor: 'background.paper'
+                    }
+                }}
+            >
+                <DialogTitle sx={{
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    pb: 1,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                }}>
+                    Race Results
+                </DialogTitle>
+                <DialogContent sx={{ pt: 2, px: 2 }}>
+                    {topPlayers.length === 0 ? (
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>No results available.</Typography>
+                    ) : (
+                        <List sx={{ py: 0 }}>
+                            {topPlayers.map((p, idx) => (
+                                <ListItem key={p.uid} divider sx={{ px: 1 }}
+                                    secondaryAction={
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Typography sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 700 }}>{p.wpm || 0} WPM</Typography>
+                                            <Typography sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>{p.accuracy || 0}%</Typography>
+                                        </Box>
+                                    }
+                                >
+                                    <Box sx={{ mr: 2, minWidth: 36, display: 'flex', justifyContent: 'center' }}>
+                                        <Box sx={{
+                                            px: 1,
+                                            py: 0.25,
+                                            borderRadius: 999,
+                                            backgroundColor: 'secondary.light',
+                                            color: 'text.primary',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            fontFamily: 'monospace',
+                                            minWidth: 24,
+                                            textAlign: 'center'
+                                        }}>
+                                            #{idx + 1}
+                                        </Box>
+                                    </Box>
+                                    <ListItemAvatar>
+                                        <Avatar sx={{ width: 32, height: 32 }}>{(p.username || 'U').charAt(0).toUpperCase()}</Avatar>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={`@${p.username}`}
+                                        primaryTypographyProps={{ sx: { fontWeight: 600 } }}
+                                    />
+                                </ListItem>
+                            ))}
+                        </List>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 2, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Button onClick={() => setResultsOpen(false)}>Close</Button>
+                    <Button variant="contained" onClick={() => navigate('/multiplayer')}>Back to Multiplayer</Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
+    );
+}
+
+
