@@ -78,12 +78,12 @@ export async function startRace({ roomId, countdownMs = 5000 }) {
     });
 }
 
-export async function setInProgress({ roomId }) {
-    await updateDoc(doc(db, 'rooms', roomId), { status: 'in_progress' });
+export async function setInProgress({ roomId, startAt }) {
+    await updateDoc(doc(db, 'rooms', roomId), { status: 'in_progress', startAt });
 }
 
-export async function finishRace({ roomId }) {
-    await updateDoc(doc(db, 'rooms', roomId), { status: 'finished' });
+export async function finishRace({ roomId, startAt }) {
+    await updateDoc(doc(db, 'rooms', roomId), { status: 'finished', startAt });
 }
 
 export async function updatePlayerProgress({ roomId, uid, progress, wpm, accuracy, inputLength }) {

@@ -44,7 +44,7 @@ export default function Room() {
 
     const topPlayers = useMemo(() => {
         const arr = [...players];
-        arr.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+        arr.sort((a, b) => (b.wpm || 0) - (a.wpm || 0) || (b.accuracy || 0) - (a.accuracy || 0));
         return arr.slice(0, 5);
     }, [players]);
 
@@ -62,7 +62,7 @@ export default function Room() {
             return false;
         };
         if (update()) {
-            setInProgress({ roomId: id });
+            setInProgress({ roomId: id, startAt: new Date(startAtMs) });
             setCountdown(null);
             return;
         }
@@ -70,20 +70,30 @@ export default function Room() {
             const reachedZero = update();
             if (reachedZero) {
                 clearInterval(interval);
-                setInProgress({ roomId: id });
+                setInProgress({ roomId: id, startAt: new Date(startAtMs) });
                 setCountdown(null);
             }
         }, 200);
         return () => clearInterval(interval);
     }, [room, id]);
 
-    // Auto finish: when all players finished/left; remove idle logic to avoid hangs
+    // Auto finish: when duration elapsed or all finished
     useEffect(() => {
         if (!room || room.status !== 'in_progress') return;
-        if (!players || players.length === 0) return;
-        const allDone = players.every(p => p.finishedAt || (p.progress || 0) >= 1);
-        if (allDone) {
-            finishRace({ roomId: id });
+        const startAtMs = room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : null;
+        if (startAtMs) {
+            const durationMs = (room.modeSeconds || 15) * 1000;
+            const remaining = startAtMs + durationMs - Date.now();
+            if (remaining <= 0) {
+                finishRace({ roomId: id, startAt: new Date(startAtMs) });
+                return;
+            }
+            const t = setTimeout(() => finishRace({ roomId: id, startAt: new Date(startAtMs) }), remaining + 50);
+            return () => clearTimeout(t);
+        }
+        if (players && players.length > 0) {
+            const allDone = players.every(p => p.finishedAt);
+            if (allDone) finishRace({ roomId: id, startAt: room.startAt || null });
         }
     }, [room, players, id]);
 
