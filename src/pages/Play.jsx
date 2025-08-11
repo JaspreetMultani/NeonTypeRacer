@@ -31,8 +31,15 @@ export default function Multiplayer() {
             username = local.replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'user';
             if (username.length < 3) username = ("user_" + user.uid.slice(0, 6)).toLowerCase();
         }
-        const roomId = await createRoom({ hostId: user.uid, username, modeSeconds: mode, seed: chosenSeed });
-        navigate(`/room/${roomId}`);
+        try {
+            const roomId = await createRoom({ hostId: user.uid, username, modeSeconds: mode, seed: chosenSeed });
+            navigate(`/room/${roomId}`);
+        } catch (e) {
+            // eslint-disable-next-line no-alert
+            alert(`Failed to create room: ${e?.message || e?.code || 'unknown error'}`);
+            // eslint-disable-next-line no-console
+            console.error('createRoom failed', e);
+        }
     };
 
     const parseRoomInput = (value) => {
