@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,25 +30,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// App Check
+// App Check: initialize synchronously as early as possible
 // Allow debug token in dev when enforcement is on
 if (!import.meta.env.PROD && import.meta.env.VITE_APPCHECK_DEBUG === 'true') {
     // eslint-disable-next-line no-undef
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 }
 
-const shouldInitAppCheck = (
-    (import.meta.env.PROD && import.meta.env.VITE_APPCHECK_KEY) ||
-    (!import.meta.env.PROD && import.meta.env.VITE_APPCHECK_DEBUG === 'true' && import.meta.env.VITE_APPCHECK_KEY)
-);
-
-if (shouldInitAppCheck) {
-    import('firebase/app-check').then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
+if (import.meta.env.VITE_APPCHECK_KEY) {
+    try {
         initializeAppCheck(app, {
             provider: new ReCaptchaV3Provider(import.meta.env.VITE_APPCHECK_KEY),
             isTokenAutoRefreshEnabled: true,
         });
-    }).catch(() => { });
+    } catch {
+        // ignore re-init during HMR
+    }
 }
 
 export const auth = getAuth(app);
