@@ -135,6 +135,11 @@ export default function Room() {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Chip label={statusLabel} color={statusColor} />
+                    {room.status === 'countdown' && typeof countdown === 'number' && (
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            {countdown}
+                        </Typography>
+                    )}
                     {isHost && room.status === 'lobby' && (
                         <Button variant="contained" onClick={handleStart}>Start (5s)</Button>
                     )}
