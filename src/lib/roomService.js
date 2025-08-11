@@ -92,13 +92,12 @@ export async function finishRace({ roomId }) {
 }
 
 export async function updatePlayerProgress({ roomId, uid, progress, wpm, accuracy, inputLength }) {
-    await updateDoc(doc(db, 'rooms', roomId, 'players', uid), {
-        progress: typeof progress === 'number' ? Math.max(0, Math.min(1, progress)) : undefined,
-        wpm,
-        accuracy,
-        inputLength,
-        lastUpdate: serverTimestamp(),
-    });
+    const payload = { lastUpdate: serverTimestamp() };
+    if (typeof progress === 'number') payload.progress = Math.max(0, Math.min(1, progress));
+    if (typeof wpm === 'number') payload.wpm = wpm;
+    if (typeof accuracy === 'number') payload.accuracy = accuracy;
+    if (typeof inputLength === 'number') payload.inputLength = inputLength;
+    await updateDoc(doc(db, 'rooms', roomId, 'players', uid), payload);
 }
 
 export async function finishPlayer({ roomId, uid, wpm, accuracy }) {

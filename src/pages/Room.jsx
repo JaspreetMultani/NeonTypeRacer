@@ -77,7 +77,7 @@ export default function Room() {
         return () => clearInterval(interval);
     }, [room, id]);
 
-    // Auto finish: when all players finished/left or if no updates for 5s
+    // Auto finish: when all players finished/left or if no updates for 5s (only after in_progress)
     useEffect(() => {
         if (!room || room.status !== 'in_progress') return;
         if (!players || players.length === 0) return;
@@ -85,14 +85,19 @@ export default function Room() {
         if (allDone) {
             finishRace({ roomId: id });
         }
-        // Idle detection: if last updates older than 5s across all players, finish
+        // Idle detection: consider start time and require at least one live update after start
+        const startAtMs = room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : 0;
         const now = Date.now();
-        const idle = players.every(p => {
-            const lu = p.lastUpdate?.toMillis?.() ?? 0;
-            return now - lu >= 5000;
-        });
-        if (idle) {
-            finishRace({ roomId: id });
+        const anyoneUpdated = players.some(p => (p.lastUpdate?.toMillis?.() ?? 0) > startAtMs);
+        if (anyoneUpdated) {
+            const idle = players.every(p => {
+                const lu = p.lastUpdate?.toMillis?.() ?? 0;
+                const ref = Math.max(lu, startAtMs);
+                return now - ref >= 5000;
+            });
+            if (idle) {
+                finishRace({ roomId: id });
+            }
         }
     }, [room, players, id]);
 
