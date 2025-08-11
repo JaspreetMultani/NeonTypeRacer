@@ -10,7 +10,7 @@ import {
     onSnapshot,
 } from 'firebase/firestore';
 
-export async function createRoom({ hostId, username, modeSeconds = 15, seed = Date.now().toString() }) {
+export async function createRoom({ hostId, username, modeSeconds = 15, seed = Date.now().toString(), passage = null, passageLength = null }) {
     const roomRef = await addDoc(collection(db, 'rooms'), {
         status: 'lobby',
         modeSeconds,
@@ -18,6 +18,8 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
         hostId,
         createdAt: serverTimestamp(),
         startAt: null,
+        passage: passage || null,
+        passageLength: passage ? passageLength || 'medium' : null,
     });
     await setDoc(doc(db, 'rooms', roomRef.id, 'players', hostId), {
         uid: hostId,
@@ -26,6 +28,7 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
         wpm: 0,
         accuracy: 100,
         inputLength: 0,
+        progress: 0,
         finishedAt: null,
         lastUpdate: serverTimestamp(),
     });
@@ -40,6 +43,7 @@ export async function joinRoom({ roomId, uid, username }) {
         wpm: 0,
         accuracy: 100,
         inputLength: 0,
+        progress: 0,
         finishedAt: null,
         lastUpdate: serverTimestamp(),
     }, { merge: true });
@@ -77,8 +81,9 @@ export async function finishRace({ roomId }) {
     await updateDoc(doc(db, 'rooms', roomId), { status: 'finished' });
 }
 
-export async function updatePlayerProgress({ roomId, uid, wpm, accuracy, inputLength }) {
+export async function updatePlayerProgress({ roomId, uid, progress, wpm, accuracy, inputLength }) {
     await updateDoc(doc(db, 'rooms', roomId, 'players', uid), {
+        progress: typeof progress === 'number' ? Math.max(0, Math.min(1, progress)) : undefined,
         wpm,
         accuracy,
         inputLength,
@@ -90,6 +95,7 @@ export async function finishPlayer({ roomId, uid, wpm, accuracy }) {
     await updateDoc(doc(db, 'rooms', roomId, 'players', uid), {
         wpm,
         accuracy,
+        progress: 1,
         finishedAt: serverTimestamp(),
     });
 }

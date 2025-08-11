@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Paper, Typography, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemAvatar, Avatar, ListItemText } from '@mui/material';
+import { Box, Paper, Typography, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemAvatar, Avatar, ListItemText, LinearProgress } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { joinRoom, subscribeRoom, subscribePlayers, startRace, updatePlayerProgress, finishPlayer, setInProgress, finishRace } from '../lib/roomService';
@@ -44,7 +44,7 @@ export default function Room() {
 
     const topPlayers = useMemo(() => {
         const arr = [...players];
-        arr.sort((a, b) => (b.wpm || 0) - (a.wpm || 0) || (b.accuracy || 0) - (a.accuracy || 0));
+        arr.sort((a, b) => (b.progress || 0) - (a.progress || 0));
         return arr.slice(0, 5);
     }, [players]);
 
@@ -107,9 +107,9 @@ export default function Room() {
         await startRace({ roomId: id, countdownMs: 5000 });
     };
 
-    const handleLive = async ({ wpm, accuracy, inputLength }) => {
+    const handleLive = async ({ wpm, accuracy, inputLength, progress }) => {
         if (!user) return;
-        await updatePlayerProgress({ roomId: id, uid: user.uid, wpm, accuracy, inputLength });
+        await updatePlayerProgress({ roomId: id, uid: user.uid, progress, wpm, accuracy, inputLength });
     };
 
     const handleFinish = async ({ wpm, accuracy }) => {
@@ -152,18 +152,30 @@ export default function Room() {
 
             <Paper sx={{ p: 2, mb: 3 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Players</Typography>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    {players.map(p => (
-                        <Chip key={p.uid} label={`@${p.username} • ${p.wpm || 0} WPM`} />
+                <List sx={{ width: '100%' }}>
+                    {players.map((p) => (
+                        <ListItem key={p.uid} divider sx={{ px: 1 }}
+                            secondaryAction={
+                                <Box sx={{ minWidth: 200 }}>
+                                    <LinearProgress variant="determinate" value={Math.round((p.progress || 0) * 100)} />
+                                </Box>
+                            }
+                        >
+                            <ListItemAvatar>
+                                <Avatar sx={{ width: 32, height: 32 }}>{(p.username || 'U').charAt(0).toUpperCase()}</Avatar>
+                            </ListItemAvatar>
+                            <ListItemText primary={`@${p.username}`} secondary={`${Math.round((p.progress || 0) * 100)}%`} />
+                        </ListItem>
                     ))}
-                </Box>
+                </List>
             </Paper>
 
             <TypingTest
                 seed={room.seed}
                 isDisabled={room.status !== 'in_progress'}
                 startAtMs={startAtMs}
-                modeSeconds={room.modeSeconds}
+                modeSeconds={null}
+                passage={room.passage}
                 onLiveUpdate={handleLive}
                 onFinish={handleFinish}
                 onTestComplete={() => { }}

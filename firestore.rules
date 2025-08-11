@@ -35,9 +35,11 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if signedIn();
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['status','modeSeconds','seed','hostId','createdAt','startAt'])
+        && request.resource.data.keys().hasOnly(['status','modeSeconds','seed','hostId','createdAt','startAt','passage','passageLength'])
         && request.resource.data.hostId == request.auth.uid
-        && request.resource.data.modeSeconds in [15,30,60];
+        && request.resource.data.modeSeconds in [15,30,60]
+        && (request.resource.data.passage == null || (request.resource.data.passage is string && request.resource.data.passage.size() >= 20 && request.resource.data.passage.size() <= 20000))
+        && (request.resource.data.passageLength == null || request.resource.data.passageLength in ['short','medium','long']);
 
       allow update: if signedIn()
         && resource.data.hostId == request.auth.uid
@@ -58,10 +60,9 @@ service cloud.firestore {
             && request.resource.data.startAt == resource.data.startAt
             && resource.data.startAt <= request.time
           ) || (
-            // in_progress -> finished: cannot change startAt and duration must have elapsed
+            // in_progress -> finished: allow host to end race at any time (passage completion)
             resource.data.status == 'in_progress' && request.resource.data.status == 'finished'
             && request.resource.data.startAt == resource.data.startAt
-            && resource.data.startAt + duration.value(resource.data.modeSeconds, 's') <= request.time
           )
         );
 
@@ -71,20 +72,22 @@ service cloud.firestore {
         allow read: if signedIn();
         // Separate create/update to add throttling only on updates
         allow create: if isOwner(uid)
-          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate'])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.username is string && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
-          && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
-          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
-          && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000));
-
-        allow update: if isOwner(uid)
-          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate'])
+          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate','progress'])
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.username is string && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
           && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
           && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
           && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000))
+          && (request.resource.data.progress == null || (request.resource.data.progress is number && request.resource.data.progress >= 0 && request.resource.data.progress <= 1));
+
+        allow update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate','progress'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.username is string && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
+          && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
+          && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
+          && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000))
+          && (request.resource.data.progress == null || (request.resource.data.progress is number && request.resource.data.progress >= 0 && request.resource.data.progress <= 1))
           // Throttle per-player updates to at most ~1 per second
           && (resource.data.lastUpdate == null || request.time - resource.data.lastUpdate >= duration.value(1, 's'));
         allow delete: if isOwner(uid) || (signedIn() && get(/databases/$(db)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);

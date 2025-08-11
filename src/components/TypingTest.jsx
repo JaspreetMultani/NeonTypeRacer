@@ -160,7 +160,7 @@ const useTypingLogic = (currentLine) => {
 };
 
 // Added startAtMs and isDisabled
-const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled = false, startAtMs = null, modeSeconds = null }) => {
+const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled = false, startAtMs = null, modeSeconds = null, passage = null }) => {
     const [input, setInput] = useState('');
     const [startTime, setStartTime] = useState(null);
     const [errorCount, setErrorCount] = useState(0);
@@ -173,6 +173,9 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
     const [showResults, setShowResults] = useState(false);
     const containerRef = useRef(null);
     const [testHistory, setTestHistory] = useState([]);
+    const [passageWords, setPassageWords] = useState(null);
+    const [passageOffset, setPassageOffset] = useState(0);
+    const wordsPerLine = 9;
 
     // If modeSeconds prop changes (multiplayer), lock the timer mode
     useEffect(() => {
@@ -200,17 +203,26 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
     );
     const { checkLineCompletion, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord } = useTypingLogic(currentLine);
 
-    // Initialize lines (optional seed)
+    // Initialize lines: fixed passage (multiplayer) or generated
     useEffect(() => {
-        if (seed !== undefined && seed !== null) {
-            textGenerator.setSeed(seed);
+        if (passage && passage.length > 0) {
+            const words = passage.trim().split(/\s+/);
+            setPassageWords(words);
+            setPassageOffset(0);
+            const makeLine = (start) => words.slice(start, Math.min(words.length, start + wordsPerLine)).join(' ');
+            setCurrentLine(makeLine(0));
+            setNextLine(makeLine(wordsPerLine));
+        } else {
+            if (seed !== undefined && seed !== null) {
+                textGenerator.setSeed(seed);
+            }
+            const firstLine = textGenerator.getNextLine();
+            const secondLine = textGenerator.getNextLine();
+            setCurrentLine(firstLine);
+            setNextLine(secondLine);
         }
-        const firstLine = textGenerator.getNextLine();
-        const secondLine = textGenerator.getNextLine();
-        setCurrentLine(firstLine);
-        setNextLine(secondLine);
         containerRef.current?.focus();
-    }, [seed]);
+    }, [seed, passage]);
 
     // Align start with provided startAtMs in multiplayer so refresh doesn't reset timer
     useEffect(() => {
@@ -263,19 +275,41 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
         if (!latest || latest.time === lastSentRef.current) return;
         lastSentRef.current = latest.time;
         const accuracy = totalCharacters ? Math.round(((totalCharacters - errorCount) / totalCharacters) * 100) : 100;
-        onLiveUpdate({ time: latest.time, wpm: latest.wpm, accuracy, inputLength: input.length });
-    }, [wpmData, onLiveUpdate, totalCharacters, errorCount, input.length]);
+        let progress;
+        if (passage && passageWords) {
+            const totalChars = passageWords.join(' ').length;
+            progress = Math.max(0, Math.min(1, totalChars ? totalCharacters / totalChars : 0));
+        }
+        onLiveUpdate({ time: latest.time, wpm: latest.wpm, accuracy, inputLength: input.length, progress });
+    }, [wpmData, onLiveUpdate, totalCharacters, errorCount, input.length, passage, passageWords]);
 
     const handleLineCompletion = useCallback((newInput) => {
         if (checkLineCompletion(newInput)) {
             setCompletedWords(prev => prev + currentLine.split(' ').length);
             setInput('');
-            setCurrentLine(nextLine);
-            setNextLine(textGenerator.getNextLine());
+            if (passage && passageWords) {
+                const newOffset = passageOffset + wordsPerLine;
+                setPassageOffset(newOffset);
+                const makeLine = (start) => passageWords.slice(start, Math.min(passageWords.length, start + wordsPerLine)).join(' ');
+                const nextCurrent = makeLine(newOffset);
+                const nextNext = makeLine(newOffset + wordsPerLine);
+                setCurrentLine(nextCurrent);
+                setNextLine(nextNext);
+                if (!nextCurrent) {
+                    setEndTime(Date.now());
+                    if (onFinish) {
+                        const stats = calculateStats();
+                        onFinish({ ...stats });
+                    }
+                }
+            } else {
+                setCurrentLine(nextLine);
+                setNextLine(textGenerator.getNextLine());
+            }
             return true;
         }
         return false;
-    }, [checkLineCompletion, currentLine, nextLine]);
+    }, [checkLineCompletion, currentLine, nextLine, passage, passageWords, passageOffset, calculateStats, onFinish]);
 
     const handleKeyPress = useCallback((e) => {
         if (endTime) return;

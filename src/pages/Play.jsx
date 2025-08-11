@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, TextField, Button, ToggleButtonGroup, ToggleButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, ToggleButtonGroup, ToggleButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { createRoom } from '../lib/roomService';
+import { generatePassage } from '../utils/textGenerator';
 
 export default function Multiplayer() {
     const [mode, setMode] = useState(15);
     const [seed, setSeed] = useState('');
+    const [passageLength, setPassageLength] = useState('medium');
     const [joinOpen, setJoinOpen] = useState(false);
     const [joinInput, setJoinInput] = useState('');
     const [joinError, setJoinError] = useState('');
@@ -17,7 +19,9 @@ export default function Multiplayer() {
     const handleCreate = async () => {
         const user = auth.currentUser;
         if (!user) return;
-        const roomId = await createRoom({ hostId: user.uid, username: user.email?.split('@')[0] || 'user', modeSeconds: mode, seed: seed || Date.now().toString() });
+        const chosenSeed = seed || Date.now().toString();
+        const passage = generatePassage({ seed: chosenSeed, length: passageLength });
+        const roomId = await createRoom({ hostId: user.uid, username: user.email?.split('@')[0] || 'user', modeSeconds: mode, seed: chosenSeed, passage, passageLength });
         navigate(`/room/${roomId}`);
     };
 
@@ -56,6 +60,20 @@ export default function Multiplayer() {
                 </ToggleButtonGroup>
 
                 <TextField label="Seed (optional)" fullWidth value={seed} onChange={(e) => setSeed(e.target.value)} sx={{ mb: 2 }} disabled={!signedIn} />
+
+                <FormControl fullWidth sx={{ mb: 2 }} disabled={!signedIn}>
+                    <InputLabel id="passage-length-label">Passage length</InputLabel>
+                    <Select
+                        labelId="passage-length-label"
+                        value={passageLength}
+                        label="Passage length"
+                        onChange={(e) => setPassageLength(e.target.value)}
+                    >
+                        <MenuItem value="short">Short</MenuItem>
+                        <MenuItem value="medium">Medium</MenuItem>
+                        <MenuItem value="long">Long</MenuItem>
+                    </Select>
+                </FormControl>
 
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button variant="contained" onClick={handleCreate} disabled={!signedIn}>Create room</Button>
