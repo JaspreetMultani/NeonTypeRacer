@@ -59,6 +59,17 @@ const Header = () => {
         return () => unsub();
     }, []);
 
+    // Allow other pages to open the auth dialog (e.g., Multiplayer page)
+    useEffect(() => {
+        const handler = () => {
+            setAuthError('');
+            setAuthSuccess('');
+            setAuthOpen(true);
+        };
+        window.addEventListener('neontype:open-auth', handler);
+        return () => window.removeEventListener('neontype:open-auth', handler);
+    }, []);
+
     const openMenu = (e) => setMenuAnchor(e.currentTarget);
     const closeMenu = () => setMenuAnchor(null);
 

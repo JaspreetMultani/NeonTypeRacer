@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, TextField, Button, ToggleButtonGroup, ToggleButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { createRoom } from '../lib/roomService';
 import { getUserProfile } from '../lib/userProfile';
 
@@ -13,16 +13,20 @@ export default function Multiplayer() {
     const [joinOpen, setJoinOpen] = useState(false);
     const [joinInput, setJoinInput] = useState('');
     const [joinError, setJoinError] = useState('');
+    const [signedIn, setSignedIn] = useState(false);
     const navigate = useNavigate();
 
-    const signedIn = !!auth.currentUser;
-
-    // Auto sign-in anonymously if not signed in
+    // Track auth state and only allow non-anonymous users
     useEffect(() => {
-        if (!auth.currentUser) {
-            signInAnonymously(auth).catch(() => { });
-        }
+        const unsub = onAuthStateChanged(auth, (u) => {
+            setSignedIn(!!u && !u.isAnonymous);
+        });
+        return () => unsub();
     }, []);
+
+    const openAuthDialog = () => {
+        window.dispatchEvent(new CustomEvent('neontype:open-auth'));
+    };
 
     const handleCreate = async () => {
         const user = auth.currentUser;
@@ -74,7 +78,10 @@ export default function Multiplayer() {
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>Create a room and share the ID, or join an existing room.</Typography>
 
                 {!signedIn && (
-                    <Alert severity="info" sx={{ mb: 2 }}>Sign in to access multiplayer.</Alert>
+                    <>
+                        <Alert severity="info" sx={{ mb: 2 }}>Sign in to access multiplayer.</Alert>
+                        <Button variant="contained" onClick={openAuthDialog} sx={{ mb: 2 }}>Sign in to play</Button>
+                    </>
                 )}
 
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Mode</Typography>

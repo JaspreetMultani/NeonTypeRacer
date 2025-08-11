@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Paper, Typography, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemAvatar, Avatar, ListItemText, LinearProgress } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { joinRoom, subscribeRoom, subscribePlayers, startRace, updatePlayerProgress, finishPlayer, setInProgress, finishRace } from '../lib/roomService';
 import { getUserProfile } from '../lib/userProfile';
 import TypingTest from '../components/TypingTest';
@@ -21,19 +22,24 @@ export default function Room() {
     }, [id]);
 
     useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) return;
-        (async () => {
-            try {
-                const profile = await getUserProfile(user.uid);
-                const username = profile?.username || user.displayName || (user.email ? user.email.split('@')[0] : 'user');
-                await joinRoom({ roomId: id, uid: user.uid, username });
-            } catch {
-                const fallback = user.displayName || (user.email ? user.email.split('@')[0] : 'user');
-                await joinRoom({ roomId: id, uid: user.uid, username: fallback });
+        const unsub = onAuthStateChanged(auth, (user) => {
+            if (!user || user.isAnonymous) {
+                navigate('/multiplayer');
+                return;
             }
-        })();
-    }, [id]);
+            (async () => {
+                try {
+                    const profile = await getUserProfile(user.uid);
+                    const username = profile?.username || user.displayName || (user.email ? user.email.split('@')[0] : 'user');
+                    await joinRoom({ roomId: id, uid: user.uid, username });
+                } catch {
+                    const fallback = user.displayName || (user.email ? user.email.split('@')[0] : 'user');
+                    await joinRoom({ roomId: id, uid: user.uid, username: fallback });
+                }
+            })();
+        });
+        return () => unsub();
+    }, [id, navigate]);
 
     // Open results dialog when race finishes
     useEffect(() => {
@@ -98,7 +104,7 @@ export default function Room() {
     }, [room, players, id]);
 
     const user = auth.currentUser;
-    const isHost = user && room && room.hostId === user.uid;
+    const isHost = user && !user.isAnonymous && room && room.hostId === user.uid;
 
     const handleStart = async () => {
         if (!isHost) return;
@@ -106,12 +112,12 @@ export default function Room() {
     };
 
     const handleLive = async ({ wpm, accuracy, inputLength, progress }) => {
-        if (!user) return;
+        if (!user || user.isAnonymous) return;
         await updatePlayerProgress({ roomId: id, uid: user.uid, progress, wpm, accuracy, inputLength });
     };
 
     const handleFinish = async ({ wpm, accuracy }) => {
-        if (!user) return;
+        if (!user || user.isAnonymous) return;
         await finishPlayer({ roomId: id, uid: user.uid, wpm, accuracy });
     };
 
