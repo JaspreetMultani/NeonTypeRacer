@@ -35,7 +35,7 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if signedIn();
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['status','modeSeconds','seed','hostId','createdAt','startAt'])
+        && request.resource.data.keys().hasOnly(['status','modeSeconds','seed','hostId','createdAt'])
         && request.resource.data.hostId == request.auth.uid
         && request.resource.data.modeSeconds in [15,30,60]
         ;

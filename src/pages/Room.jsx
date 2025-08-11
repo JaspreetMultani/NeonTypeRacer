@@ -77,26 +77,13 @@ export default function Room() {
         return () => clearInterval(interval);
     }, [room, id]);
 
-    // Auto finish: when all players finished/left or if any started player is idle for 5s
+    // Auto finish: when all players finished/left; remove idle logic to avoid hangs
     useEffect(() => {
         if (!room || room.status !== 'in_progress') return;
         if (!players || players.length === 0) return;
         const allDone = players.every(p => p.finishedAt || (p.progress || 0) >= 1);
         if (allDone) {
             finishRace({ roomId: id });
-        }
-        // Idle detection: after at least one player has updated, if any started player is idle >= 5s, end race
-        const startAtMs = room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : 0;
-        const now = Date.now();
-        const playersWhoStarted = players.filter(p => (p.lastUpdate?.toMillis?.() ?? 0) > startAtMs);
-        if (playersWhoStarted.length > 0) {
-            const someoneIdle = playersWhoStarted.some(p => {
-                const lu = p.lastUpdate?.toMillis?.() ?? 0;
-                return now - lu >= 5000;
-            });
-            if (someoneIdle) {
-                finishRace({ roomId: id });
-            }
         }
     }, [room, players, id]);
 

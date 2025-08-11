@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { createRoom } from '../lib/roomService';
 import { getUserProfile } from '../lib/userProfile';
- 
+
 
 export default function Multiplayer() {
     const [mode, setMode] = useState(15);

@@ -737,8 +737,8 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
                         alignItems: 'center'
                     }}
                 >
-                    {/* Time Mode Selector - hidden for passage mode */}
-                    {!isPassageMode && (
+                    {/* Time Mode Selector - hide in multiplayer (when modeSeconds is set) */}
+                    {!modeSeconds && (
                         <ToggleButtonGroup
                             value={selectedTimeMode}
                             exclusive
