@@ -253,7 +253,7 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
             hasSubmittedRef.current = true;
             const { wpm, accuracy } = calculateStats();
             const user = auth.currentUser;
-            if (user) {
+            if (user && !user.isAnonymous) {
                 submitRun({
                     user,
                     modeSeconds: selectedTimeMode,

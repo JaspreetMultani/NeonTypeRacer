@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, TextField, Button, ToggleButtonGroup, ToggleButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { createRoom } from '../lib/roomService';
 import { getUserProfile } from '../lib/userProfile';
 
@@ -15,6 +16,13 @@ export default function Multiplayer() {
     const navigate = useNavigate();
 
     const signedIn = !!auth.currentUser;
+
+    // Auto sign-in anonymously if not signed in
+    useEffect(() => {
+        if (!auth.currentUser) {
+            signInAnonymously(auth).catch(() => { });
+        }
+    }, []);
 
     const handleCreate = async () => {
         const user = auth.currentUser;

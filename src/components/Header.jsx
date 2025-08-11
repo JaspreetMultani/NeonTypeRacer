@@ -32,17 +32,21 @@ const Header = () => {
             setUser(u);
             if (u) {
                 try {
-                    // First try to read the existing profile to avoid creating default during sign-up race
-                    let p = await getUserProfile(u.uid);
-                    if (!p) {
-                        // Briefly wait to allow sign-up flow to write chosen username
-                        await new Promise((r) => setTimeout(r, 300));
-                        p = await getUserProfile(u.uid);
+                    if (u.isAnonymous) {
+                        setProfile({ username: `user_${u.uid.slice(0, 6)}` });
+                    } else {
+                        // First try to read the existing profile to avoid creating default during sign-up race
+                        let p = await getUserProfile(u.uid);
+                        if (!p) {
+                            // Briefly wait to allow sign-up flow to write chosen username
+                            await new Promise((r) => setTimeout(r, 300));
+                            p = await getUserProfile(u.uid);
+                        }
+                        if (!p) {
+                            p = await ensureUserProfile(u);
+                        }
+                        setProfile(p);
                     }
-                    if (!p) {
-                        p = await ensureUserProfile(u);
-                    }
-                    setProfile(p);
                 } catch (err) {
                     // eslint-disable-next-line no-console
                     console.error('Failed to load/create profile', err);
