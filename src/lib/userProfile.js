@@ -67,6 +67,10 @@ export async function checkUsernameAvailable(desiredUsername) {
 }
 
 export async function createProfileWithUsername(user, desiredUsername) {
+    // Ensure fresh auth token right after sign-up to satisfy Firestore owner checks
+    if (user && typeof user.getIdToken === 'function') {
+        try { await user.getIdToken(true); } catch { /* noop */ }
+    }
     const sanitized = sanitizeUsername(desiredUsername, `user_${user.uid.slice(0, 6)}`);
     if (!sanitized || sanitized.length < 3) {
         throw new Error('Username must be at least 3 characters (letters, numbers, underscore).');

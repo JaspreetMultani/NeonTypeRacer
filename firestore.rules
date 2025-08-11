@@ -10,7 +10,8 @@ service cloud.firestore {
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['username','avatarUrl','createdAt'])
         && request.resource.data.username is string
-        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$');
+        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.createdAt is timestamp;
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['username','avatarUrl'])
         && request.resource.data.username.matches('^[a-z0-9_]{3,20}$');
