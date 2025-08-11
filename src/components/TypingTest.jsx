@@ -253,7 +253,8 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
             hasSubmittedRef.current = true;
             const { wpm, accuracy } = calculateStats();
             const user = auth.currentUser;
-            if (user && !user.isAnonymous) {
+            // Skip submitting runs when used in multiplayer (identified by provided startAtMs)
+            if (user && !user.isAnonymous && !startAtMs) {
                 submitRun({
                     user,
                     modeSeconds: selectedTimeMode,
@@ -267,7 +268,7 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
                 onFinish({ wpm, accuracy, errors: errorCount, modeSeconds: selectedTimeMode });
             }
         }
-    }, [timerShowResults, startTime, endTime, calculateStats, selectedTimeMode, errorCount, wpmData, onFinish]);
+    }, [timerShowResults, startTime, endTime, calculateStats, selectedTimeMode, errorCount, wpmData, onFinish, startAtMs]);
 
     // Live update callback on new data points
     const lastSentRef = useRef(0);
