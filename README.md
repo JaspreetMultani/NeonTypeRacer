@@ -1,52 +1,79 @@
-<h1 align="center">NeonType ⚡</h1>
-<p align="center">
-  A clean, responsive, and feature-rich typing test app built with React & Vite.  
-  <br/>
-  <a href="https://neon-type-racer.vercel.app/" target="_blank"><b>🌐 Live Demo</b></a>
-</p>
+# NeonTypeRacer 🎯
+
+A fast-paced multiplayer typing game inspired by TypeRacer — built for speed, accuracy, and fun.  
+Test your typing skills against the clock or challenge friends in real-time multiplayer matches.  
+
+🔗 **Live Demo:** [https://neon-type-racer.vercel.app/](https://neon-type-racer.vercel.app/)
 
 ---
 
-## 📸 Preview
+## 🚀 Features
 
-![NeonType Screenshot](https://github.com/JaspreetMultani/NeonType/blob/main/thumbnail.png?raw=true)
-
----
-
-## ✨ Features
-
-- 🕹 **Selectable time modes:** 15s | 30s | 60s  
-- 🧠 **Real-time stats:** live WPM, accuracy & timer  
-- 📈 **Performance graph:** WPM over time chart after each test  
-- 🛠 **Try Again:** instant reset button  
-- 🟣 **Neon-themed UI** built with **Material UI** & **Framer Motion**  
-- 📱 **Fully responsive** across all devices  
+- **Multiple Modes** — 15s, 30s, and 60s challenges.
+- **Live WPM & Accuracy Tracking** — see your stats update instantly.
+- **Leaderboard** — compete globally for the top spot.
+- **Multiplayer Mode** — create or join rooms and race friends live.
+- **User Accounts** — sign up/sign in to save progress.
+- **Performance Stats** — history tracking with detailed WPM and accuracy graphs.
 
 ---
 
-## ⚙️ Tech Stack
+## 🖼 Screenshots
 
-<p align="left">
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB"/>
-  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Material_UI-007FFF?style=for-the-badge&logo=mui&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Recharts-FFBB28?style=for-the-badge&logo=recharts&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Framer_Motion-000000?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black"/>
-  <img src="https://img.shields.io/badge/CSS-2965f1?style=for-the-badge&logo=css3&logoColor=white"/>
-</p>
+### Home Screen
+![Home Screen](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/HomeScreen.png?raw=true)
+
+### Leaderboard
+![Leaderboard](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/Leaderboard.png?raw=true)
+
+### Multiplayer Lobby
+![Multiplayer Lobby](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/Multiplayer.png?raw=true)
+
+### Multiplayer Room
+![Multiplayer Room](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/MultiplayerRoom.png?raw=true)
+
+### Multiplayer In Progress
+![Multiplayer In Progress](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/MultiplayerRoomInProgress.png?raw=true)
+
+### Multiplayer Results
+![Multiplayer Results](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/MultiplayerResults.png?raw=true)
+
+### Player Stats
+![Player Stats](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/PlayerStats.png?raw=true)
+![Player Stats 2](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/PlayerStats2.png?raw=true)
+
+### Sign In / Sign Up
+![Sign In](https://github.com/JaspreetMultani/NeonTypeRacer/blob/main/Screenshots_neontype/Sign%20In:Up.png?raw=true)
 
 ---
 
-## 🚀 Getting Started
+## 🛠 Tech Stack
+
+**Frontend:**
+- React (JavaScript)
+- CSS Modules / Styled Components
+
+**Backend & Services:**
+- Firebase Authentication
+- Firebase Firestore (leaderboards & stats)
+- Firebase Realtime Database / WebSockets (multiplayer sync)
+
+**Deployment:**
+- Vercel
+
+---
+
+## 📦 Installation
 
 ```bash
-# Clone repo
-git clone https://github.com/JaspreetMultani/NeonType.git
-cd NeonType
+# Clone the repository
+git clone https://github.com/JaspreetMultani/NeonTypeRacer.git
+
+# Navigate into the project directory
+cd NeonTypeRacer
 
 # Install dependencies
 npm install
 
-# Start dev server
+# Start development server
 npm run dev
