@@ -6,7 +6,7 @@ import { createRoom } from '../lib/roomService';
 import { generatePassage } from '../utils/textGenerator';
 
 export default function Multiplayer() {
-    const [mode, setMode] = useState(15);
+    const [mode, setMode] = useState(60); // hidden, kept for rules compatibility
     const [seed, setSeed] = useState('');
     const [passageLength, setPassageLength] = useState('medium');
     const [joinOpen, setJoinOpen] = useState(false);
@@ -52,12 +52,7 @@ export default function Multiplayer() {
                     <Alert severity="info" sx={{ mb: 2 }}>Sign in to access multiplayer.</Alert>
                 )}
 
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Mode</Typography>
-                <ToggleButtonGroup value={mode} exclusive onChange={(e, v) => v && setMode(v)} sx={{ mb: 2 }} disabled={!signedIn}>
-                    <ToggleButton value={15}>15s</ToggleButton>
-                    <ToggleButton value={30}>30s</ToggleButton>
-                    <ToggleButton value={60}>60s</ToggleButton>
-                </ToggleButtonGroup>
+                {/* Time mode hidden for passage races */}
 
                 <TextField label="Seed (optional)" fullWidth value={seed} onChange={(e) => setSeed(e.target.value)} sx={{ mb: 2 }} disabled={!signedIn} />
 

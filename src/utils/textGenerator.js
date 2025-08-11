@@ -131,7 +131,7 @@ export const generateWordList = (count) => {
         result.push(commonWords[Math.floor(Math.random() * commonWords.length)]);
     }
     return result.join(" ");
-}; 
+};
 
 // Generate a passage for multiplayer based on a length preset
 // length: 'short' | 'medium' | 'long'

@@ -176,6 +176,7 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
     const [passageWords, setPassageWords] = useState(null);
     const [passageOffset, setPassageOffset] = useState(0);
     const wordsPerLine = 9;
+    const isPassageMode = !!passage;
 
     // If modeSeconds prop changes (multiplayer), lock the timer mode
     useEffect(() => {
@@ -436,12 +437,14 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
     // Stats panel components
     const StatsPanel = memo(() => (
         <Box sx={{ display: 'flex', gap: 2, mb: 4, width: '100%', justifyContent: 'center' }}>
-            <StatBox
-                icon={TimerIcon}
-                label="Time"
-                value={`${!hasStarted ? selectedTimeMode : Math.ceil(timeLeft)}s`}
-                color={timeLeft < 5 ? 'error.main' : 'primary.main'}
-            />
+            {!isPassageMode && (
+                <StatBox
+                    icon={TimerIcon}
+                    label="Time"
+                    value={`${!hasStarted ? selectedTimeMode : Math.ceil(timeLeft)}s`}
+                    color={timeLeft < 5 ? 'error.main' : 'primary.main'}
+                />
+            )}
             <StatBox
                 icon={SpeedIcon}
                 label="WPM"
@@ -733,8 +736,8 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
                         alignItems: 'center'
                     }}
                 >
-                    {/* Time Mode Selector - hide in multiplayer */}
-                    {!modeSeconds && (
+                    {/* Time Mode Selector - hidden for passage mode */}
+                    {!isPassageMode && (
                         <ToggleButtonGroup
                             value={selectedTimeMode}
                             exclusive
