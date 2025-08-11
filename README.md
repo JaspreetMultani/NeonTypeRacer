@@ -2,7 +2,7 @@
 <p align="center">
   A clean, responsive, and feature-rich typing test app built with React & Vite.  
   <br/>
-  <a href="https://neon-type.vercel.app" target="_blank"><b>🌐 Live Demo</b></a>
+  <a href="https://neon-type-racer.vercel.app/" target="_blank"><b>🌐 Live Demo</b></a>
 </p>
 
 ---
