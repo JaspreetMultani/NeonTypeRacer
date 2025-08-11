@@ -48,56 +48,22 @@ export default function Room() {
         return arr.slice(0, 5);
     }, [players]);
 
-    // Handle countdown and auto-transition to in_progress
+    // Disable countdown: start immediately when host clicks start
     useEffect(() => {
-        if (!room || room.status !== 'countdown' || !room.startAt) return;
-
-        const startAtMs = room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime();
-
-        // Initialize immediately
-        const update = () => {
-            const timeLeft = Math.max(0, startAtMs - Date.now());
-            if (timeLeft === 0) {
-                setCountdown(0);
-                return true;
-            }
-            setCountdown(Math.ceil(timeLeft / 1000));
-            return false;
-        };
-
-        if (update()) {
-            // Already zero
-            setInProgress({ roomId: id });
-            setCountdown(null);
-            return;
-        }
-
-        const interval = setInterval(() => {
-            const reachedZero = update();
-            if (reachedZero) {
-                clearInterval(interval);
-                setInProgress({ roomId: id });
-                setCountdown(null);
-            }
-        }, 200);
-
-        return () => clearInterval(interval);
+        if (!room || room.status !== 'countdown') return;
+        setInProgress({ roomId: id });
+        setCountdown(null);
     }, [room, id]);
 
-    // Auto mark race as finished when duration elapses
+    // Auto finish: when all players finished or left
     useEffect(() => {
-        if (!room || room.status !== 'in_progress' || !room.startAt) return;
-        const startAtMs = room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime();
-        const durationMs = (room.modeSeconds || 15) * 1000;
-        const endAtMs = startAtMs + durationMs;
-        const remaining = endAtMs - Date.now();
-        if (remaining <= 0) {
+        if (!room || room.status !== 'in_progress') return;
+        if (!players || players.length === 0) return;
+        const allDone = players.every(p => p.finishedAt || (p.progress || 0) >= 1);
+        if (allDone) {
             finishRace({ roomId: id });
-            return;
         }
-        const t = setTimeout(() => finishRace({ roomId: id }), remaining + 50);
-        return () => clearTimeout(t);
-    }, [room, id]);
+    }, [room, players, id]);
 
     const user = auth.currentUser;
     const isHost = user && room && room.hostId === user.uid;
@@ -138,11 +104,6 @@ export default function Room() {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Chip label={statusLabel} color={statusColor} />
-                    {typeof countdown === 'number' && (
-                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                            {countdown}
-                        </Typography>
-                    )}
                     {isHost && room.status === 'lobby' && (
                         <Button variant="contained" onClick={handleStart}>Start (5s)</Button>
                     )}

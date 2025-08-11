@@ -138,17 +138,14 @@ export const generateWordList = (count) => {
 export const generatePassage = ({ seed = 'default', length = 'medium' }) => {
     const gen = new TextGenerator();
     gen.setSeed(seed);
-    // Approximate character targets
-    const targetChars = length === 'short' ? 280 : length === 'long' ? 900 : 500;
-    let passage = '';
-    while (passage.length < targetChars) {
-        const line = gen.getNextLine();
-        passage += (passage ? ' ' : '') + line;
-    }
-    // Trim to nearest word boundary
-    const lastSpace = passage.lastIndexOf(' ');
-    if (lastSpace > 0 && passage.length > targetChars) {
-        passage = passage.slice(0, lastSpace);
-    }
-    return passage;
+    // Word count ranges
+    const ranges = {
+        short: [15, 20],
+        medium: [25, 35],
+        long: [50, 60],
+    };
+    const [minW, maxW] = ranges[length] || ranges.medium;
+    const wordCount = Math.floor(minW + gen._rand() * (maxW - minW + 1));
+    const words = gen.generateWords(wordCount);
+    return words.join(' ');
 };

@@ -88,8 +88,13 @@ service cloud.firestore {
           && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
           && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000))
           && (request.resource.data.progress == null || (request.resource.data.progress is number && request.resource.data.progress >= 0 && request.resource.data.progress <= 1))
-          // Throttle per-player updates to at most ~1 per second
-          && (resource.data.lastUpdate == null || request.time - resource.data.lastUpdate >= duration.value(1, 's'));
+          // Allow username-only or joinedAt-only updates without throttling
+          && (
+            request.resource.data.diff(resource.data).changedKeys().hasOnly(['username']) ||
+            request.resource.data.diff(resource.data).changedKeys().hasOnly(['joinedAt']) ||
+            // Otherwise throttle per-player updates to at most ~1 per second
+            (resource.data.lastUpdate == null || request.time - resource.data.lastUpdate >= duration.value(1, 's'))
+          );
         allow delete: if isOwner(uid) || (signedIn() && get(/databases/$(db)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
       }
     }

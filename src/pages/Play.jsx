@@ -3,6 +3,7 @@ import { Box, Paper, Typography, TextField, Button, ToggleButtonGroup, ToggleBut
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { createRoom } from '../lib/roomService';
+import { getUserProfile } from '../lib/userProfile';
 import { generatePassage } from '../utils/textGenerator';
 
 export default function Multiplayer() {
@@ -21,7 +22,18 @@ export default function Multiplayer() {
         if (!user) return;
         const chosenSeed = seed || Date.now().toString();
         const passage = generatePassage({ seed: chosenSeed, length: passageLength });
-        const roomId = await createRoom({ hostId: user.uid, username: user.email?.split('@')[0] || 'user', modeSeconds: mode, seed: chosenSeed, passage, passageLength });
+        // Resolve a username that passes rules: lowercase, a-z0-9_
+        let username = 'user';
+        try {
+            const profile = await getUserProfile(user.uid);
+            username = profile?.username || username;
+        } catch { }
+        if (!username || username === 'user') {
+            const local = (user.displayName || user.email?.split('@')[0] || 'user').toLowerCase();
+            username = local.replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'user';
+            if (username.length < 3) username = ("user_" + user.uid.slice(0, 6)).toLowerCase();
+        }
+        const roomId = await createRoom({ hostId: user.uid, username, modeSeconds: mode, seed: chosenSeed, passage, passageLength });
         navigate(`/room/${roomId}`);
     };
 
