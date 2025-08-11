@@ -5,7 +5,8 @@ service cloud.firestore {
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
 
     match /users/{uid} {
-      allow read: if signedIn() && isOwner(uid);
+      // Public read so unauthenticated clients can check username availability
+      allow read: if true;
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['username','avatarUrl','createdAt'])
         && request.resource.data.username is string
