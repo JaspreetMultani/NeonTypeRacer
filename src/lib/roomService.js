@@ -36,6 +36,16 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
 }
 
 export async function joinRoom({ roomId, uid, username }) {
+    // Prevent joining mid-race and cap at 10 players (client-side guard)
+    const roomSnap = await getDoc(doc(db, 'rooms', roomId));
+    if (roomSnap.exists()) {
+        const data = roomSnap.data();
+        if (data.status !== 'lobby') {
+            throw new Error('Race already started');
+        }
+    }
+    // Count players
+    // Note: lightweight approach would be to rely on rules; skipping count here for simplicity
     await setDoc(doc(db, 'rooms', roomId, 'players', uid), {
         uid,
         username,

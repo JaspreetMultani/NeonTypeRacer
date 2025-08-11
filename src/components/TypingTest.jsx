@@ -65,7 +65,7 @@ const StatBox = memo(({ icon: Icon, label, value, color = 'primary.main' }) => (
 ));
 
 // Custom hook for timer logic
-const useTypingTimer = (hasStarted, startTime, selectedTimeMode, completedWords, input) => {
+const useTypingTimer = (hasStarted, startTime, selectedTimeMode, completedWords, input, disableAutoEnd = false) => {
     const [timeLeft, setTimeLeft] = useState(selectedTimeMode);
     const [endTime, setEndTime] = useState(null);
     const [liveWPM, setLiveWPM] = useState(0);
@@ -112,7 +112,7 @@ const useTypingTimer = (hasStarted, startTime, selectedTimeMode, completedWords,
                     }]);
                 }
 
-                if (remaining <= 0) {
+                if (!disableAutoEnd && remaining <= 0) {
                     setTimeLeft(0);
                     setEndTime(Date.now());
                     setShowResults(true);
@@ -200,7 +200,8 @@ const TypingTest = ({ onTestComplete, onLiveUpdate, onFinish, seed, isDisabled =
         startTime,
         selectedTimeMode,
         completedWords,
-        input
+        input,
+        !!passage // disable auto end when using passage mode
     );
     const { checkLineCompletion, isValidKeyPress, isAtLastWord, hasCompletedCurrentWord } = useTypingLogic(currentLine);
 

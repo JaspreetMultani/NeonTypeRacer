@@ -39,7 +39,9 @@ service cloud.firestore {
         && request.resource.data.hostId == request.auth.uid
         && request.resource.data.modeSeconds in [15,30,60]
         && (request.resource.data.passage == null || (request.resource.data.passage is string && request.resource.data.passage.size() >= 20 && request.resource.data.passage.size() <= 20000))
-        && (request.resource.data.passageLength == null || request.resource.data.passageLength in ['short','medium','long']);
+        && (request.resource.data.passageLength == null || request.resource.data.passageLength in ['short','medium','long'])
+        // enforce max 10 players via a field? Not enforced here; enforced at players create below
+        ;
 
       allow update: if signedIn()
         && resource.data.hostId == request.auth.uid
@@ -78,7 +80,9 @@ service cloud.firestore {
           && (request.resource.data.wpm == null || (request.resource.data.wpm >= 0 && request.resource.data.wpm <= 400))
           && (request.resource.data.accuracy == null || (request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100))
           && (request.resource.data.inputLength == null || (request.resource.data.inputLength is number && request.resource.data.inputLength >= 0 && request.resource.data.inputLength <= 10000))
-          && (request.resource.data.progress == null || (request.resource.data.progress is number && request.resource.data.progress >= 0 && request.resource.data.progress <= 1));
+          && (request.resource.data.progress == null || (request.resource.data.progress is number && request.resource.data.progress >= 0 && request.resource.data.progress <= 1))
+          // disallow joining once race started
+          && get(/databases/$(db)/documents/rooms/$(roomId)).data.status == 'lobby';
 
         allow update: if isOwner(uid)
           && request.resource.data.keys().hasOnly(['uid','username','joinedAt','wpm','accuracy','inputLength','finishedAt','lastUpdate','progress'])

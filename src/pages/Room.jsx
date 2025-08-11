@@ -48,19 +48,50 @@ export default function Room() {
         return arr.slice(0, 5);
     }, [players]);
 
-    // Disable countdown: start immediately when host clicks start
+    // Countdown then start
     useEffect(() => {
-        if (!room || room.status !== 'countdown') return;
-        setInProgress({ roomId: id });
-        setCountdown(null);
+        if (!room || room.status !== 'countdown' || !room.startAt) return;
+        const startAtMs = room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime();
+        const update = () => {
+            const timeLeft = Math.max(0, startAtMs - Date.now());
+            if (timeLeft === 0) {
+                setCountdown(0);
+                return true;
+            }
+            setCountdown(Math.ceil(timeLeft / 1000));
+            return false;
+        };
+        if (update()) {
+            setInProgress({ roomId: id });
+            setCountdown(null);
+            return;
+        }
+        const interval = setInterval(() => {
+            const reachedZero = update();
+            if (reachedZero) {
+                clearInterval(interval);
+                setInProgress({ roomId: id });
+                setCountdown(null);
+            }
+        }, 200);
+        return () => clearInterval(interval);
     }, [room, id]);
 
-    // Auto finish: when all players finished or left
+    // Auto finish: when all players finished/left or if no updates for 5s
     useEffect(() => {
         if (!room || room.status !== 'in_progress') return;
         if (!players || players.length === 0) return;
         const allDone = players.every(p => p.finishedAt || (p.progress || 0) >= 1);
         if (allDone) {
+            finishRace({ roomId: id });
+        }
+        // Idle detection: if last updates older than 5s across all players, finish
+        const now = Date.now();
+        const idle = players.every(p => {
+            const lu = p.lastUpdate?.toMillis?.() ?? 0;
+            return now - lu >= 5000;
+        });
+        if (idle) {
             finishRace({ roomId: id });
         }
     }, [room, players, id]);
@@ -134,7 +165,7 @@ export default function Room() {
             <TypingTest
                 seed={room.seed}
                 isDisabled={room.status !== 'in_progress'}
-                startAtMs={startAtMs}
+                startAtMs={room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : null}
                 modeSeconds={null}
                 passage={room.passage}
                 onLiveUpdate={handleLive}
