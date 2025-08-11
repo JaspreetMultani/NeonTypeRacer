@@ -17,7 +17,6 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
         seed,
         hostId,
         createdAt: serverTimestamp(),
-        startAt: null,
     });
     await setDoc(doc(db, 'rooms', roomRef.id, 'players', hostId), {
         uid: hostId,
@@ -26,7 +25,6 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
         wpm: 0,
         accuracy: 100,
         inputLength: 0,
-        progress: 0,
         finishedAt: null,
         lastUpdate: serverTimestamp(),
     });
@@ -51,7 +49,6 @@ export async function joinRoom({ roomId, uid, username }) {
         wpm: 0,
         accuracy: 100,
         inputLength: 0,
-        progress: 0,
         finishedAt: null,
         lastUpdate: serverTimestamp(),
     }, { merge: true });
