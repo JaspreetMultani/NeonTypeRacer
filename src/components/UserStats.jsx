@@ -57,6 +57,13 @@ export default function UserStats() {
     }, [runs]);
 
     const series = useMemo(() => orderedRuns.map((r, idx) => ({ x: idx + 1, wpm: r.wpm || 0, id: r.id })), [orderedRuns]);
+
+    // Recent runs: show the newest 10 runs
+    const recentRuns = useMemo(() => {
+        const withTs = runs.filter(r => r.createdAt && typeof r.createdAt.toMillis === 'function');
+        withTs.sort((a, b) => (b.createdAt.toMillis()) - (a.createdAt.toMillis()));
+        return withTs.slice(0, 10);
+    }, [runs]);
     const overallAvgWpm = useMemo(() => {
         if (orderedRuns.length === 0) return 0;
         const sum = orderedRuns.reduce((s, r) => s + (r.wpm || 0), 0);
@@ -128,7 +135,7 @@ export default function UserStats() {
             <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1 }}>Recent Runs</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {orderedRuns.slice(0, 10).map((r) => (
+                    {recentRuns.map((r) => (
                         <Paper key={r.id} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between' }}>
                             <Typography sx={{ fontFamily: 'monospace' }}>{r.mode}s</Typography>
                             <Typography sx={{ fontFamily: 'monospace', color: 'primary.main' }}>{r.wpm} WPM</Typography>
