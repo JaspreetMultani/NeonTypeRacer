@@ -154,15 +154,23 @@ export default function Room() {
                     {players.map((p) => (
                         <ListItem key={p.uid} divider sx={{ px: 1 }}
                             secondaryAction={
-                                <Box sx={{ minWidth: 200 }}>
-                                    <LinearProgress variant="determinate" value={Math.round((p.progress || 0) * 100)} />
+                                <Box sx={{ minWidth: 220, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ flex: 1 }}>
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={Math.max(0, Math.min(100, Math.round(((p.wpm || 0) / 200) * 100)))}
+                                        />
+                                    </Box>
+                                    <Typography sx={{ fontFamily: 'monospace', minWidth: 68, textAlign: 'right' }}>
+                                        {Math.round(p.wpm || 0)} WPM
+                                    </Typography>
                                 </Box>
                             }
                         >
                             <ListItemAvatar>
                                 <Avatar sx={{ width: 32, height: 32 }}>{(p.username || 'U').charAt(0).toUpperCase()}</Avatar>
                             </ListItemAvatar>
-                            <ListItemText primary={`@${p.username}`} secondary={`${Math.round((p.progress || 0) * 100)}% • ${Math.round(p.wpm || 0)} WPM`} />
+                            <ListItemText primary={`@${p.username}`} />
                         </ListItem>
                     ))}
                 </List>
