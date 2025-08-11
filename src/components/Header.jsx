@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, IconButton, InputAdornment, Checkbox, FormControlLabel, Menu, MenuItem, Divider } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
-import { auth } from '../lib/firebase';
-import { signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail } from 'firebase/auth';
+import { auth, googleProvider } from '../lib/firebase';
+import { signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, signInWithPopup } from 'firebase/auth';
 import { ensureUserProfile, createProfileWithUsername, checkUsernameAvailable, getUserProfile } from '../lib/userProfile';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -144,6 +144,25 @@ const Header = () => {
         }
     };
 
+    const handleGoogleAuth = async () => {
+        try {
+            setAuthLoading(true);
+            setAuthError('');
+            setAuthSuccess('');
+            await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+            await signInWithPopup(auth, googleProvider);
+            handleCloseAuth();
+        } catch (e) {
+            const code = e?.code || '';
+            let message = 'Google sign-in failed';
+            if (code === 'auth/popup-closed-by-user') message = 'Sign-in canceled.';
+            if (code === 'auth/cancelled-popup-request') message = 'Sign-in canceled.';
+            setAuthError(message);
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
     const handleResetPassword = async () => {
         try {
             setAuthError('');
@@ -230,6 +249,15 @@ const Header = () => {
                 <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                     {authError && <Alert severity="error">{authError}</Alert>}
                     {authSuccess && <Alert severity="success">{authSuccess}</Alert>}
+                    <Button
+                        variant="outlined"
+                        onClick={handleGoogleAuth}
+                        disabled={authLoading}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Continue with Google
+                    </Button>
+                    <Divider>or</Divider>
                     {isSignUp && (
                         <TextField
                             label="Username"
