@@ -165,7 +165,7 @@ export default function Room() {
                             <ListItemAvatar>
                                 <Avatar sx={{ width: 32, height: 32 }}>{(p.username || 'U').charAt(0).toUpperCase()}</Avatar>
                             </ListItemAvatar>
-                            <ListItemText primary={`@${p.username}`} secondary={`${Math.round((p.progress || 0) * 100)}%`} />
+                            <ListItemText primary={`@${p.username}`} secondary={`${Math.round((p.progress || 0) * 100)}% • ${Math.round(p.wpm || 0)} WPM`} />
                         </ListItem>
                     ))}
                 </List>
@@ -175,8 +175,8 @@ export default function Room() {
                 seed={room.seed}
                 isDisabled={room.status !== 'in_progress'}
                 startAtMs={room.startAt ? (room.startAt.toDate ? room.startAt.toDate().getTime() : room.startAt.getTime()) : null}
-                modeSeconds={null}
-                passage={room.passage}
+                modeSeconds={room.modeSeconds}
+                passage={null}
                 onLiveUpdate={handleLive}
                 onFinish={handleFinish}
                 onTestComplete={() => { }}

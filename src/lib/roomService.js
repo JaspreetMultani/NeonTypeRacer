@@ -18,8 +18,6 @@ export async function createRoom({ hostId, username, modeSeconds = 15, seed = Da
         hostId,
         createdAt: serverTimestamp(),
         startAt: null,
-        passage: passage || null,
-        passageLength: passage ? passageLength || 'medium' : null,
     });
     await setDoc(doc(db, 'rooms', roomRef.id, 'players', hostId), {
         uid: hostId,
